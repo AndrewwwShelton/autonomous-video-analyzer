@@ -21,7 +21,7 @@ export default function VideoDetailPage({ toast }) {
       setFlags(await api.flags(id));
     } catch (e) {
       toast(e.message);
-      navigate("/");
+      navigate("/content");
     }
   }, [id, toast, navigate]);
 
@@ -44,7 +44,7 @@ export default function VideoDetailPage({ toast }) {
     }
   }
 
-  if (!video || !flags) return <p style={{ color: "var(--ink-2)" }}>Loading…</p>;
+  if (!video || !flags) return <div className="skeleton-page" aria-busy="true" />;
 
   const inventory = flags.ad_spots.reduce(
     (acc, s) => acc + (s.timestamp_end - s.timestamp_start), 0);
@@ -52,13 +52,13 @@ export default function VideoDetailPage({ toast }) {
   return (
     <>
       <div className="detail-header">
-        <button className="icon-btn" onClick={() => navigate("/")} title="Back to content">
-          <span className="material-symbols-outlined">arrow_back</span>
+        <button className="icon-btn" onClick={() => navigate("/content")} aria-label="Back to content">
+          <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
         </button>
         <h1>{video.filename}</h1>
         <MonetizationBadge verdict={flags.verdict} />
         <button className="btn btn--outline" onClick={() => exportReport("CSV")}>
-          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }} aria-hidden="true">download</span>
           Export CSV
         </button>
         <button className="btn btn--outline" onClick={() => exportReport("JSON")}>JSON</button>
@@ -66,7 +66,7 @@ export default function VideoDetailPage({ toast }) {
 
       {video.processed_status !== "completed" ? (
         <div className="card empty">
-          <span className="material-symbols-outlined">pending</span>
+          <span className="material-symbols-outlined" aria-hidden="true">pending</span>
           <h3>This video hasn’t been analyzed yet</h3>
           <p>Run checks from the Content page to populate this view.</p>
         </div>
@@ -151,6 +151,7 @@ const JumpBtn = ({ t, onSeek }) => (
 function AudioTable({ rows, onSeek }) {
   if (!rows.length) return <div className="empty"><p>No audio flags.</p></div>;
   return (
+    <div className="table-scroll">
     <table className="vtable">
       <thead><tr><th>At</th><th>Word</th><th>Severity</th><th>Context</th><th>Model</th></tr></thead>
       <tbody>
@@ -165,12 +166,14 @@ function AudioTable({ rows, onSeek }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
 function VisualTable({ rows, onSeek }) {
   if (!rows.length) return <div className="empty"><p>No visual risks.</p></div>;
   return (
+    <div className="table-scroll">
     <table className="vtable">
       <thead><tr><th>At</th><th>Object</th><th>Category</th><th>Confidence</th><th>Bounding box</th></tr></thead>
       <tbody>
@@ -194,12 +197,14 @@ function VisualTable({ rows, onSeek }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
 function SpotsTable({ rows, onSeek }) {
   if (!rows.length) return <div className="empty"><p>No ad spots found.</p></div>;
   return (
+    <div className="table-scroll">
     <table className="vtable">
       <thead><tr><th>From</th><th>To</th><th>Duration</th><th>Surface</th><th>Area (px)</th><th>Suitability</th></tr></thead>
       <tbody>
@@ -222,5 +227,6 @@ function SpotsTable({ rows, onSeek }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

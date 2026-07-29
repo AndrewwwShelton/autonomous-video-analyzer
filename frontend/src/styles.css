@@ -383,3 +383,179 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 .dict-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .dict-row .input { flex: 1; }
 .page-actions { display: flex; justify-content: flex-end; gap: 12px; }
+
+/* Inline validation */
+.field-error {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--sev-high); font-size: 12px; margin-top: 4px;
+}
+.field-error .material-symbols-outlined { font-size: 16px; }
+.input--invalid { border-color: var(--sev-high); }
+.input--invalid:focus { border-color: var(--sev-high); }
+.form-hint { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+
+/* ================= Accessibility ================= */
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Keyboard users get a clear ring; mouse users don't see it. */
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.timeline__bar:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ================= New shared pieces ================= */
+
+.muted-note { font-size: 13px; color: var(--ink-2); margin-bottom: 12px; }
+.chart-empty { font-size: 13px; color: var(--ink-3); padding: 8px 0; }
+
+.scrim {
+  position: fixed; inset: var(--topbar-h) 0 0 0; background: var(--overlay);
+  z-index: 45; animation: fade-in 0.15s ease-out;
+}
+@keyframes fade-in { from { opacity: 0; } }
+
+/* Loading placeholder — calmer than a bare "Loading…" string */
+.skeleton-page { min-height: 320px; border-radius: var(--radius); background: var(--surface);
+  border: 1px solid var(--border); position: relative; overflow: hidden; }
+.skeleton-page::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--hover), transparent);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+.stats--3 { grid-template-columns: repeat(3, 1fr); }
+.stats--4 { grid-template-columns: repeat(4, 1fr); }
+.stat__hint { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
+.dash-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; align-items: start; }
+
+/* Bar list — the chart primitive. Value always shown as text beside the bar. */
+.barlist { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.barlist li { display: grid; grid-template-columns: minmax(90px, 130px) 1fr auto; gap: 12px; align-items: center; }
+.barlist__label {
+  font-size: 13px; color: var(--ink); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.barlist__track { height: 10px; background: var(--track); border-radius: 5px; overflow: hidden; }
+.barlist__fill { display: block; height: 100%; border-radius: 5px; min-width: 4px; }
+.barlist__value { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.verdict__bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; background: var(--track); }
+.verdict__seg { display: block; height: 100%; }
+.verdict__legend { display: flex; gap: 20px; margin-top: 12px; font-size: 13px; color: var(--ink-2); }
+.verdict__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.verdict__legend i { width: 10px; height: 10px; border-radius: 3px; }
+.verdict__legend b { color: var(--ink); }
+
+.activity { list-style: none; display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.activity__row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 8px; border-radius: 8px; transition: background 0.12s;
+}
+.activity__row:hover { background: var(--hover); }
+.activity__body { display: flex; flex-direction: column; min-width: 0; }
+.activity__title { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity__meta { font-size: 12px; color: var(--ink-2); }
+
+/* Wide data tables scroll inside their own container, never the page body. */
+.table-scroll { overflow-x: auto; }
+
+/* .vcell__title is a <button> for keyboard access — strip the chrome. */
+.vcell__title { padding: 0; text-align: left; font: inherit; font-weight: 500; }
+
+/* ================= Responsive =================
+   Desktop >=1200 · Laptop 900–1199 · Tablet 600–899 · Mobile <600            */
+
+@media (max-width: 1199px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .stats--4 { grid-template-columns: repeat(2, 1fr); }
+  .playercard { max-width: 560px; }
+}
+
+@media (max-width: 899px) {
+  /* Sidebar becomes an overlay drawer.
+     visibility (not just transform) so a closed drawer is neither painted nor
+     keyboard-focusable; it switches discretely, after the slide-out finishes. */
+  .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;               /* untransitioned: never stuck mid-state */
+    transition: transform 0.2s ease;
+    width: var(--sidebar-w); z-index: 60;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.4);
+  }
+  .sidebar--open { transform: translateX(0); visibility: visible; }
+  .main, .main--mini { margin-left: 0; padding: 20px 16px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .stats--3 { grid-template-columns: repeat(3, 1fr); }
+  .topbar__left { min-width: auto; }
+  .topbar__right { min-width: auto; }
+  .form-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .form-row label { width: 100%; }
+  .form-row .input { width: 100%; }
+}
+
+@media (max-width: 599px) {
+  .topbar { padding: 0 8px; }
+  .topbar__search { display: none; }          /* search moves out of the way on phones */
+  .create-btn__label { display: none; }
+  .create-btn { padding: 0 10px; }
+  .logo__text { font-size: 17px; }
+  .main, .main--mini { padding: 16px 12px; }
+  .page-title { font-size: 20px; }
+
+  .stats, .stats--3, .stats--4 { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat { padding: 12px 14px; }
+  .stat__value { font-size: 24px; }
+
+  /* Content table → card list. Tables do not work at this width.
+     Scoped to --cards: the detail tables scroll horizontally instead. */
+  .vtable--cards thead { display: none; }
+  .vtable--cards, .vtable--cards tbody, .vtable--cards tr, .vtable--cards td {
+    display: block; width: 100%;
+  }
+  .vtable--cards tr {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin: 12px; padding: 12px; background: var(--surface);
+  }
+  .vtable--cards tbody tr:hover { background: var(--surface); }
+  .vtable--cards td {
+    border: none; padding: 6px 0;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .vtable--cards td::before {
+    content: attr(data-label);
+    font-size: 12px; color: var(--ink-2); flex: none;
+  }
+  /* The video cell is the card header — no label, stack it full width. */
+  .vtable--cards td[data-label="Video"] { display: block; padding-bottom: 10px; }
+  .vtable--cards td[data-label="Video"]::before { display: none; }
+  .vcell { min-width: 0; }
+  .vcell__thumb { width: 96px; height: 54px; }
+  .vcell__actions { opacity: 1; }            /* no hover on touch — always show */
+
+  .barlist li { grid-template-columns: minmax(72px, 96px) 1fr auto; gap: 8px; }
+  .timeline__labels { width: 56px; }
+  .timeline-legend { padding-left: 0; flex-wrap: wrap; gap: 12px; }
+  .detail-header { flex-wrap: wrap; }
+  .detail-header h1 { font-size: 18px; flex-basis: 100%; order: 3; }
+  .dialog { width: 96vw; }
+  .dropzone { margin: 12px; padding: 32px 16px; }
+  .dropzone__icon { width: 88px; height: 88px; }
+  .dropzone__icon .material-symbols-outlined { font-size: 40px; }
+  .toast { left: 12px; right: 12px; bottom: 12px; }
+}

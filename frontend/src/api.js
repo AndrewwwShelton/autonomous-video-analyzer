@@ -25,6 +25,7 @@ export const api = {
   analyze: (id) => request("POST", `/api/videos/${id}/analyze`),
   status: (id) => request("GET", `/api/videos/${id}/status`),
   flags: (id) => request("GET", `/api/videos/${id}/flags`),
+  stats: () => request("GET", "/api/stats"),
   getConfig: () => request("GET", "/api/config"),
   putConfig: (cfg) => request("PUT", "/api/config", cfg),
   listReports: (videoId) =>

@@ -97,7 +97,7 @@ export default function ContentPage({ search, toast, refreshKey }) {
     }
   }
 
-  if (videos === null) return <p style={{ color: "var(--ink-2)" }}>Loading…</p>;
+  if (videos === null) return <div className="skeleton-page" aria-busy="true" />;
 
   const filtered = videos.filter((v) =>
     v.filename.toLowerCase().includes(search.toLowerCase())
@@ -118,7 +118,7 @@ export default function ContentPage({ search, toast, refreshKey }) {
 
         {filtered.length === 0 ? (
           <div className="empty">
-            <span className="material-symbols-outlined">video_library</span>
+            <span className="material-symbols-outlined" aria-hidden="true">video_library</span>
             <h3>{videos.length === 0 ? "No content available" : "No videos match your search"}</h3>
             {videos.length === 0 && (
               <>
@@ -130,7 +130,7 @@ export default function ContentPage({ search, toast, refreshKey }) {
             )}
           </div>
         ) : (
-          <table className="vtable">
+          <table className="vtable vtable--cards">
             <thead>
               <tr>
                 <th>Video</th><th>Monetization</th><th>Status</th><th>Date</th>
@@ -140,48 +140,49 @@ export default function ContentPage({ search, toast, refreshKey }) {
             <tbody>
               {filtered.map((v) => (
                 <tr key={v.video_id}>
-                  <td>
+                  <td data-label="Video">
                     <div className="vcell">
                       {v.thumbnail_url ? (
                         <img className="vcell__thumb" src={v.thumbnail_url} alt=""
                              onClick={() => navigate(`/video/${v.video_id}`)} />
                       ) : (
                         <div className="vcell__thumb vcell__thumb--empty">
-                          <span className="material-symbols-outlined">smart_display</span>
+                          <span className="material-symbols-outlined" aria-hidden="true">smart_display</span>
                         </div>
                       )}
                       <div>
-                        <div className="vcell__title" onClick={() => navigate(`/video/${v.video_id}`)}>
+                        <button className="vcell__title"
+                                onClick={() => navigate(`/video/${v.video_id}`)}>
                           {v.filename}
-                        </div>
+                        </button>
                         <div className="vcell__sub">
                           {v.resolution_width}×{v.resolution_height} · {Math.round(v.fps)} fps · {v.file_size_mb} MB
                         </div>
                         <div className="vcell__actions">
-                          <button className="icon-btn" title="Open" onClick={() => navigate(`/video/${v.video_id}`)}>
-                            <span className="material-symbols-outlined">open_in_new</span>
+                          <button className="icon-btn" aria-label={`Open ${v.filename}`}
+                                  onClick={() => navigate(`/video/${v.video_id}`)}>
+                            <span className="material-symbols-outlined" aria-hidden="true">open_in_new</span>
                           </button>
-                          <button className="icon-btn" title={v.processed_status === "completed" ? "Re-run checks" : "Run checks"}
+                          <button className="icon-btn"
+                                  aria-label={`${v.processed_status === "completed" ? "Re-run" : "Run"} checks on ${v.filename}`}
                                   onClick={() => analyze(v)}
                                   disabled={v.processed_status === "processing"}>
-                            <span className="material-symbols-outlined">refresh</span>
+                            <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
                           </button>
-                          <button className="icon-btn" title="Delete" onClick={() => remove(v)}>
-                            <span className="material-symbols-outlined">delete</span>
+                          <button className="icon-btn" aria-label={`Delete ${v.filename}`}
+                                  onClick={() => remove(v)}>
+                            <span className="material-symbols-outlined" aria-hidden="true">delete</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td><MonetizationBadge verdict={v.verdict} /></td>
-                  <td><StatusCell video={v} progress={progressMap[v.video_id]} /></td>
-                  <td>
-                    {fmtDate(v.upload_timestamp)}
-                    <div className="vcell__sub">Uploaded</div>
-                  </td>
-                  <td>{fmtTime(v.duration_sec)}</td>
-                  <td>{v.counts ? v.counts.audio + v.counts.visual : "—"}</td>
-                  <td>{v.counts ? v.counts.ad_spots : "—"}</td>
+                  <td data-label="Monetization"><MonetizationBadge verdict={v.verdict} /></td>
+                  <td data-label="Status"><StatusCell video={v} progress={progressMap[v.video_id]} /></td>
+                  <td data-label="Uploaded">{fmtDate(v.upload_timestamp)}</td>
+                  <td data-label="Duration">{fmtTime(v.duration_sec)}</td>
+                  <td data-label="Flags">{v.counts ? v.counts.audio + v.counts.visual : "—"}</td>
+                  <td data-label="Ad spots">{v.counts ? v.counts.ad_spots : "—"}</td>
                 </tr>
               ))}
             </tbody>

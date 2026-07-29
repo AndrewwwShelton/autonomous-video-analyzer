@@ -91,7 +91,22 @@ export default function Timeline({ duration, audio, visual, adSpots, currentTime
               height={BAR_H}
               rx={4}
               fill={SEVERITY_COLORS[ev.key] ?? "#717171"}
+              tabIndex={0}
+              role="button"
+              aria-label={`${LANES[ev.lane]} event at ${fmtTime(ev.start)}: ${ev.label}, ${ev.key}. Jump to this moment.`}
               onClick={() => onSeek?.(ev.start)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSeek?.(ev.start);
+                }
+              }}
+              onFocus={(e) => {
+                const r = wrapRef.current.getBoundingClientRect();
+                const b = e.target.getBoundingClientRect();
+                setTip({ x: b.left - r.left + b.width / 2, y: b.top - r.top, ev });
+              }}
+              onBlur={() => setTip(null)}
               onMouseMove={(e) => {
                 const r = wrapRef.current.getBoundingClientRect();
                 setTip({ x: e.clientX - r.left, y: e.clientY - r.top, ev });

@@ -69,10 +69,11 @@ export default function ReportsPage({ toast }) {
       <div className="card">
         {reports.length === 0 ? (
           <div className="empty">
-            <span className="material-symbols-outlined">description</span>
+            <span className="material-symbols-outlined" aria-hidden="true">description</span>
             <h3>No reports yet</h3>
           </div>
         ) : (
+          <div className="table-scroll">
           <table className="vtable">
             <thead>
               <tr>
@@ -92,14 +93,16 @@ export default function ReportsPage({ toast }) {
                   <td>{r.compliance_status}</td>
                   <td>
                     <a className="icon-btn" style={{ display: "inline-flex" }}
-                       href={`/api/reports/${r.report_id}/download`} title="Download">
-                      <span className="material-symbols-outlined">download</span>
+                       href={`/api/reports/${r.report_id}/download`}
+                       aria-label={`Download ${r.report_type} report`}>
+                      <span className="material-symbols-outlined" aria-hidden="true">download</span>
                     </a>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+            </div>
         )}
       </div>
     </>

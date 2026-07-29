@@ -11,6 +11,12 @@ from src.reports import exporter
 router = APIRouter(tags=["system"])
 
 
+@router.get("/stats")
+def library_stats() -> dict:
+    """Library-wide aggregates powering the Dashboard and Analytics screens."""
+    return repo.get_library_stats()
+
+
 class ConfigPayload(BaseModel):
     profanity_dictionary: list[dict]
     frame_sample_fps: float

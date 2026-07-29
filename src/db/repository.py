@@ -177,3 +177,74 @@ def set_config(key: str, value, config_type: str = "string", description: str | 
             "last_updated = CURRENT_TIMESTAMP",
             (key, stored, config_type, description),
         )
+
+# ---------------------------------------------------------------- Aggregates
+
+# A video is Restricted if it has any High-severity audio flag or any Weapon-category
+# visual flag — the same rule as orchestrator.compliance_verdict(), expressed in SQL so
+# the whole library can be summarised in one pass.
+_VERDICT_SQL = """
+    SELECT v.video_id,
+           CASE WHEN EXISTS (SELECT 1 FROM AudioFlags a
+                             WHERE a.video_id = v.video_id AND a.severity = 'High')
+                  OR EXISTS (SELECT 1 FROM VisualFlags f
+                             WHERE f.video_id = v.video_id AND f.risk_category = 'Weapon')
+                THEN 'Restricted' ELSE 'Monetizable' END AS verdict
+    FROM VideoMetadata v
+    WHERE v.processed_status = 'completed'
+"""
+
+
+def get_library_stats(db_path: Path | None = None) -> dict:
+    """Library-wide aggregates for the Dashboard and Analytics screens."""
+    with get_connection(db_path) as conn:
+        def rows(sql, params=()):
+            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+        status_counts = {r["processed_status"]: r["n"] for r in rows(
+            "SELECT processed_status, COUNT(*) n FROM VideoMetadata GROUP BY processed_status")}
+
+        verdicts = {r["verdict"]: r["n"] for r in rows(
+            f"SELECT verdict, COUNT(*) n FROM ({_VERDICT_SQL}) GROUP BY verdict")}
+
+        totals = dict(conn.execute("""
+            SELECT (SELECT COUNT(*) FROM VideoMetadata)                     AS videos,
+                   (SELECT COALESCE(SUM(duration_sec), 0) FROM VideoMetadata) AS duration_sec,
+                   (SELECT COUNT(*) FROM AudioFlags)                        AS audio_flags,
+                   (SELECT COUNT(*) FROM VisualFlags)                       AS visual_flags,
+                   (SELECT COUNT(*) FROM AdSpots)                           AS ad_spots,
+                   (SELECT COALESCE(SUM(timestamp_end - timestamp_start), 0)
+                      FROM AdSpots)                                         AS ad_inventory_sec
+        """).fetchone())
+
+        return {
+            "totals": totals,
+            "status_counts": status_counts,
+            "verdicts": {"Monetizable": verdicts.get("Monetizable", 0),
+                         "Restricted": verdicts.get("Restricted", 0)},
+            "severity_breakdown": rows(
+                "SELECT severity AS label, COUNT(*) AS value FROM AudioFlags "
+                "GROUP BY severity ORDER BY value DESC"),
+            "risk_category_breakdown": rows(
+                "SELECT risk_category AS label, COUNT(*) AS value FROM VisualFlags "
+                "GROUP BY risk_category ORDER BY value DESC"),
+            "top_words": rows(
+                "SELECT word_flagged AS label, COUNT(*) AS value, "
+                "       MAX(severity) AS severity FROM AudioFlags "
+                "GROUP BY word_flagged ORDER BY value DESC, label LIMIT 8"),
+            "top_objects": rows(
+                "SELECT object_detected AS label, COUNT(*) AS value, "
+                "       ROUND(AVG(confidence_score), 3) AS avg_confidence FROM VisualFlags "
+                "GROUP BY object_detected ORDER BY value DESC, label LIMIT 8"),
+            "spot_types": rows(
+                "SELECT spot_type AS label, COUNT(*) AS value, "
+                "       ROUND(SUM(timestamp_end - timestamp_start), 1) AS seconds FROM AdSpots "
+                "GROUP BY spot_type ORDER BY value DESC"),
+            "recent_videos": rows(
+                "SELECT video_id, filename, processed_status, upload_timestamp, duration_sec "
+                "FROM VideoMetadata ORDER BY video_id DESC LIMIT 5"),
+            "recent_reports": rows(
+                "SELECT report_id, video_id, report_type, generation_timestamp, "
+                "       compliance_status FROM AuditReports "
+                "ORDER BY report_id DESC LIMIT 5"),
+        }
