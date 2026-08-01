@@ -134,13 +134,20 @@ with plausible geometry, and short-lived surfaces are correctly discarded.
 - [ ] `pip install reportlab`; implement `exporter.export_pdf()` from the `_gather()` dict
 - [ ] Enable the PDF option on the Reports screen (currently disabled)
 
-**Accuracy benchmark** 🔴 *see §4*
-- [ ] Create `benchmark/` and collect ~20–30 short clips
-- [ ] Hand-label ground truth for audio and visual flags
-- [ ] Write an evaluation script: run the pipeline, compare against ground truth,
-      report precision and recall per category
-- [ ] Record the results; if precision falls below 85 %, tune thresholds, dictionary or
+**Accuracy benchmark** — harness ✅ done, labelling ⏳ outstanding
+- [x] `benchmark/` harness: matching rules, metrics, CLI, label validator
+- [x] Isolation — runs against a throwaway database, never the real library
+- [x] Stubbed engines excluded from the headline figure automatically
+- [x] Small-sample guard — prints `NOT YET PUBLISHABLE` below 30 events / 10 real clips
+- [x] Synthetic fixture generator for harness validation (not for the claim)
+- [x] 18 tests covering the matching rules
+- [ ] **Collect and label 20–30 real clips** ← the remaining work
+- [ ] Record results; if precision falls below 85 %, tune thresholds, dictionary or
       model **before** repeating the claim
+
+Current reading: audio 100 % precision / 100 % recall, but on only 4 events from a
+single synthetic clip — correctly reported as not publishable. Vision is excluded
+until M2 lands.
 
 ### M3b — Custom fine-tune · optional · gated on M3a
 
@@ -158,21 +165,22 @@ YOLOv8, evaluate against the M5 benchmark, and swap the weights **only if it win
 
 ## 4. Risks
 
-### 🔴 The benchmark is now the top risk
+### 🟠 Benchmark labelling (harness now built)
 
-The SRS promises *"a precision rate greater than 85 % on benchmark testing sets."* That
-claim currently has **no evidence behind it** — `benchmark/` does not exist, and no
-clips have been collected or labelled.
+The SRS promises *"a precision rate greater than 85 % on benchmark testing sets."* The
+harness that produces that figure is now complete and tested — **but it has almost
+nothing to measure.** One synthetic clip with four labelled events is not evidence.
 
-This matters more than it appears:
+The risk has shifted from "no harness" to "no data", which is the better problem to
+have, but the slow half:
 
-- Examiners reliably ask how the accuracy figure was obtained.
-- Labelling 20–30 clips is slow, manual work that cannot be compressed at the end.
-- It cannot start meaningfully until M1 and M2 produce real output to compare against —
-  but **clip collection can start today**, independently of any code.
+- Labelling 20–30 clips is manual work that cannot be compressed at the end.
+- It can proceed **entirely in parallel** with M2 and M3a — nothing blocks it.
+- The harness refuses to publish a figure until the evidence base is adequate, so
+  under-labelling will be caught rather than quietly shipped.
 
-**Action:** begin gathering candidate clips now, in parallel with M1. Collecting and
-labelling is the long pole; running the evaluation afterwards is quick.
+**Action:** label roughly one clip per sitting alongside the M2 work. See
+`benchmark/README.md` for the format and the rules that keep the numbers honest.
 
 ### 🟠 M2 has the only external dependency
 

@@ -28,3 +28,8 @@ reports_out/
 # Overleaf bundle + duplicated images (source of truth is docs/screens/)
 docs/UID/UID_Overleaf.zip
 docs/UID/screens/
+
+# Benchmark: media and run output are large/derived; labels ARE the deliverable
+benchmark/clips/
+benchmark/results/
+benchmark/.scratch/
