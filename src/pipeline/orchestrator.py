@@ -21,7 +21,9 @@ from src.audio.transcriber import (DemoTranscriber, FasterWhisperTranscriber,
                                    TranscriptionError)
 from src.db import repository as repo
 from src.vision.adspots import DemoAdSpotFinder
-from src.vision.detector import DemoDetector
+from src.vision.detector import (DemoDetector, DetectorError, YoloDetector,
+                                 to_risk_flags)
+from src.vision.sampler import sample_frames
 from src.vision.tracker import merge_candidates
 
 ProgressCallback = Callable[[str, float], None]  # (stage_label, fraction 0..1)
@@ -66,6 +68,40 @@ def _run_audio_stage(video: dict, demo: bool, report: ProgressCallback) -> tuple
     return flags, engine
 
 
+def _run_vision_stage(video: dict, demo: bool, report: ProgressCallback) -> tuple[list, str]:
+    """Sample frames and detect visual risks. Returns (visual_flag_dicts, engine_name)."""
+    video_id = video["video_id"]
+    duration = video["duration_sec"]
+    threshold = repo.get_config("detection_confidence_threshold") or 0.5
+
+    if demo:
+        report("Scanning frames for visual risks (demo)", 0.55)
+        detector = DemoDetector(seed=video_id)
+        flags = detector.detect(duration,
+                                video["resolution_width"] or 1280,
+                                video["resolution_height"] or 720)
+        flags = [f for f in flags if f["confidence_score"] >= threshold]
+        engine = detector.name
+    else:
+        sample_fps = repo.get_config("frame_sample_fps") or 1.0
+        weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
+        detector = YoloDetector(tuple(weights), confidence_threshold=threshold)
+        engine = detector.name
+
+        flags = []
+        expected = max(1, int(duration * sample_fps))
+        for i, (timestamp, frame) in enumerate(sample_frames(Path(video["filepath"]),
+                                                             sample_fps)):
+            flags += to_risk_flags(detector.detect_frame(frame, timestamp))
+            if i % 5 == 0:
+                # Vision dominates runtime, so it owns the 0.40-0.75 progress band.
+                report(f"Scanning frames ({i + 1}/{expected})",
+                       0.40 + 0.35 * min(1.0, (i + 1) / expected))
+
+    repo.insert_visual_flags(video_id, flags)
+    return flags, engine
+
+
 def process_video(video_id: int, demo: bool = True,
                   progress: ProgressCallback | None = None) -> dict:
     """Run the full analysis pipeline for one uploaded video.
@@ -96,13 +132,8 @@ def process_video(video_id: int, demo: bool = True,
         # Stage 1 — Audio & NLP (Module 1). Real as of M1.
         audio_flags, engines["audio"] = _run_audio_stage(video, demo, report)
 
-        # Stage 2 — Vision risks (Module 2). Demo until M2.
-        report("Scanning frames for visual risks", 0.55)
-        visual_flags = DemoDetector(seed=video_id).detect(duration, width, height)
-        threshold = repo.get_config("detection_confidence_threshold") or 0.5
-        visual_flags = [f for f in visual_flags if f["confidence_score"] >= threshold]
-        repo.insert_visual_flags(video_id, visual_flags)
-        engines["visual"] = "demo-detector"
+        # Stage 2 — Vision risks (Module 2). Real as of M2.
+        visual_flags, engines["visual"] = _run_vision_stage(video, demo, report)
 
         # Stage 3 — Ad spots. Demo candidates feed the REAL temporal tracker until M3a.
         report("Locating ad placement surfaces", 0.80)
@@ -119,7 +150,7 @@ def process_video(video_id: int, demo: bool = True,
         return {"audio": len(audio_flags), "visual": len(visual_flags),
                 "ad_spots": len(spots), "engines": engines}
 
-    except TranscriptionError as e:
+    except (TranscriptionError, DetectorError) as e:
         repo.update_video_status(video_id, "failed")
         report(str(e), 1.0)
         raise

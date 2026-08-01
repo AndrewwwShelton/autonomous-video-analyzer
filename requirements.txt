@@ -8,6 +8,7 @@ numpy>=1.26
 opencv-python>=4.9
 
 faster-whisper>=1.0        # M1 — local speech-to-text (D3)
+ultralytics>=8.2           # M2 — COCO YOLOv8 detection (D4)
 
 # Dev
 pytest>=8.0
@@ -15,5 +16,4 @@ pytest>=8.0
 # Frontend: see frontend/package.json (React + Vite) — `npm install` in frontend/
 
 # --- AI engines (uncomment when the milestone lands) ---
-# ultralytics>=8.2           # M2 — YOLOv8 detection
 # reportlab>=4.0             # M5 — PDF report export

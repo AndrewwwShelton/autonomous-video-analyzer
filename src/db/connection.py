@@ -36,6 +36,10 @@ _DEFAULT_CONFIG = [
      "Minimum YOLO confidence for a visual flag to be recorded"),
     ("whisper_model", config.DEFAULT_WHISPER_MODEL, "string",
      "faster-whisper model size used for transcription (D3)"),
+    ("vision_weights", json.dumps(["yolov8n.pt"]), "json",
+     "YOLO weight files used for visual detection, resolved from models/. Stock COCO "
+     "covers knife/scissors/bat/bottle/wine glass but has no gun, cigarette or drugs; "
+     "add a specialist risk model here to cover those (PLAN.md D1)"),
     ("analysis_mode", "demo", "string",
      "'real' runs implemented engines (audio as of M1); 'demo' uses deterministic "
      "stand-ins and needs no model weights"),

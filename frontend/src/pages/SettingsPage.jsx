@@ -44,12 +44,50 @@ function FieldError({ msg }) {
   );
 }
 
+const COVERAGE_TONE = {
+  full: "var(--good)", partial: "var(--sev-low)", none: "var(--sev-high)",
+};
+
+function VisionCoverage({ coverage }) {
+  if (!coverage) return <p className="chart-empty">Checking what the models can detect…</p>;
+  if (coverage.error) {
+    return <p className="field-error"><span className="material-symbols-outlined"
+      aria-hidden="true">error</span>{coverage.error}</p>;
+  }
+  return (
+    <>
+      <ul className="barlist" style={{ gap: 6 }}>
+        {Object.entries(coverage.by_category).map(([cat, d]) => (
+          <li key={cat} style={{ gridTemplateColumns: "110px 1fr" }}>
+            <span className="barlist__label">
+              <span className="chip__dot" style={{
+                background: COVERAGE_TONE[d.status], display: "inline-block", marginRight: 6,
+              }} />
+              {cat}
+            </span>
+            <span className="barlist__value" style={{ textAlign: "left" }}>
+              {d.covered.length ? d.covered.join(", ") : "nothing detectable"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="form-hint">
+        Categories marked partial or empty need a specialist risk model. Stock COCO
+        weights contain no firearm, cigarette or drug classes, so those are never
+        flagged — a limitation of the weights, not of the footage.
+      </p>
+    </>
+  );
+}
+
 export default function SettingsPage({ toast }) {
   const [cfg, setCfg] = useState(null);
+  const [coverage, setCoverage] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.getConfig().then(setCfg).catch((e) => toast(e.message));
+    api.visionCoverage().then(setCoverage).catch(() => setCoverage(null));
   }, [toast]);
 
   const errors = useMemo(() => (cfg ? validate(cfg) : null), [cfg]);
@@ -129,6 +167,28 @@ export default function SettingsPage({ toast }) {
             ? "Audio transcription is real (faster-whisper). Visual detection and ad-spot "
               + "detection remain stand-ins until those milestones land."
             : "All engines are stand-ins. Switch to Real to transcribe actual speech."}
+        </p>
+      </div>
+
+      <div className="card form-card">
+        <h3>Visual detection coverage</h3>
+        <p className="muted-note">
+          What the currently configured weights can actually find.
+        </p>
+        <VisionCoverage coverage={coverage} />
+        <div className="form-row" style={{ marginTop: 12 }}>
+          <label htmlFor="vision_weights">Weight files</label>
+          <input
+            id="vision_weights"
+            className="input"
+            value={(cfg.vision_weights || []).join(", ")}
+            onChange={(e) => set("vision_weights",
+              e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+          />
+        </div>
+        <p className="form-hint">
+          Comma separated, resolved from <code>models/</code>. Add a specialist risk
+          model here to cover firearms, smoking and drugs.
         </p>
       </div>
 

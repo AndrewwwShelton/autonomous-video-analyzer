@@ -17,6 +17,18 @@ def library_stats() -> dict:
     return repo.get_library_stats()
 
 
+@router.get("/vision-coverage")
+def vision_coverage() -> dict:
+    """What the configured detection weights can actually find.
+
+    Surfaced in the interface so the tool never implies it is checking for
+    something the loaded models cannot detect.
+    """
+    from src.vision.detector import coverage_report
+    weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
+    return coverage_report(tuple(weights))
+
+
 class ConfigPayload(BaseModel):
     profanity_dictionary: list[dict]
     frame_sample_fps: float
@@ -24,6 +36,7 @@ class ConfigPayload(BaseModel):
     detection_confidence_threshold: float
     whisper_model: str
     analysis_mode: str = "demo"
+    vision_weights: list[str] = ["yolov8n.pt"]
 
 
 @router.get("/config")
@@ -35,6 +48,7 @@ def get_config() -> dict:
         "detection_confidence_threshold": repo.get_config("detection_confidence_threshold") or 0.5,
         "whisper_model": repo.get_config("whisper_model") or "base.en",
         "analysis_mode": repo.get_config("analysis_mode") or "demo",
+        "vision_weights": repo.get_config("vision_weights") or ["yolov8n.pt"],
     }
 
 
@@ -53,6 +67,8 @@ def put_config(payload: ConfigPayload) -> dict:
     if mode not in ("demo", "real"):
         raise HTTPException(400, "analysis_mode must be 'demo' or 'real'")
     repo.set_config("analysis_mode", mode, "string")
+    weights = [w.strip() for w in payload.vision_weights if w.strip()]
+    repo.set_config("vision_weights", weights or ["yolov8n.pt"], "json")
     return get_config()
 
 

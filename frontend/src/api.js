@@ -26,6 +26,7 @@ export const api = {
   status: (id) => request("GET", `/api/videos/${id}/status`),
   flags: (id) => request("GET", `/api/videos/${id}/flags`),
   stats: () => request("GET", "/api/stats"),
+  visionCoverage: () => request("GET", "/api/vision-coverage"),
   getConfig: () => request("GET", "/api/config"),
   putConfig: (cfg) => request("PUT", "/api/config", cfg),
   listReports: (videoId) =>
