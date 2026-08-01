@@ -4,7 +4,8 @@
 > picking the work back up. For *why* the design is shaped this way see [`PLAN.md`](PLAN.md);
 > for *what happens next* see [`ROADMAP.md`](ROADMAP.md).
 >
-> Last updated: 2026-07-22 · Milestone: **M0+ complete** (walking skeleton + full web UI)
+> Last updated: 2026-08-01 · Status: **application complete, AI engines pending**
+> (skeleton + full web UI + Stage-4 UID document delivered; M1/M2/M3a stubs remain)
 
 ---
 
@@ -126,8 +127,11 @@ specproj/
 ├── requirements.txt      backend deps (AI engines commented until their milestone)
 ├── demo_setup.py         seeds a clean 2-video library for the review demo
 ├── RUN_DEMO.bat          one-click build+serve for the panel (Windows)
-├── Synopsis.pdf · SRS (1).pdf · DDD_Final.pdf   design docs
+├── Synopsis.pdf · SRS (1).pdf · DDD_Final.pdf · UID_Final.pdf   stage deliverables 1-4
 ├── Project_Justification.docx · Presentation_I_AdSafe.pptx
+├── docs/UID/main.tex     UID document source (LaTeX)
+├── docs/screens/         14 UI captures used as UID figures
+├── docs/SCREENSHOT_CHECKLIST.md
 ├── .claude/launch.json   dev-server launch config (api :8000, web :5173)
 │
 ├── backend/              FastAPI app (Module 4 backend)
