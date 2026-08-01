@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AdSafe Benchmark Labeller</title>
+<style>
+  :root{
+    --bg:#0f0f0f; --surface:#212121; --raised:#282828; --border:#303030;
+    --ink:#f1f1f1; --ink-2:#aaa; --ink-3:#717171; --blue:#3ea6ff;
+    --high:#d03b3b; --med:#ec835a; --low:#fab219; --good:#0ca30c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Roboto,system-ui,"Segoe UI",sans-serif;font-size:14px;
+       background:var(--bg);color:var(--ink);padding:20px}
+  h1{font-size:20px;font-weight:400;margin-bottom:4px}
+  h2{font-size:14px;font-weight:500;margin-bottom:10px}
+  .sub{color:var(--ink-2);font-size:13px;margin-bottom:18px}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:20px;max-width:1500px;margin:0 auto}
+  @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+  video{width:100%;border-radius:8px;background:#000;display:block}
+  button{font:inherit;cursor:pointer;border:none;border-radius:18px;padding:7px 14px;
+         background:var(--raised);color:var(--ink);border:1px solid var(--border)}
+  button:hover{background:#333}
+  button.primary{background:var(--blue);color:#0f0f0f;border-color:transparent;font-weight:500}
+  button.ghost{background:none;border:none;color:var(--blue);padding:4px 8px}
+  button.mini{padding:4px 10px;font-size:12px;border-radius:12px}
+  input,select,textarea{font:inherit;background:var(--raised);color:var(--ink);
+        border:1px solid var(--border);border-radius:8px;padding:7px 10px;width:100%}
+  textarea{resize:vertical;min-height:52px}
+  label{display:block;font-size:12px;color:var(--ink-2);margin:10px 0 4px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .time{font-variant-numeric:tabular-nums;font-size:26px;margin:10px 0}
+  .time small{font-size:13px;color:var(--ink-2)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid var(--border);
+        background:var(--raised);cursor:pointer}
+  .chip:hover{border-color:var(--blue)}
+  .chip.high{border-color:#d03b3b66}.chip.med{border-color:#ec835a66}.chip.low{border-color:#fab21966}
+  ul{list-style:none}
+  li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+  li:last-child{border:none}
+  .t{color:var(--blue);cursor:pointer;font-variant-numeric:tabular-nums;min-width:52px}
+  .t:hover{text-decoration:underline}
+  .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .del{color:var(--ink-3);cursor:pointer;border:none;background:none;padding:2px 6px}
+  .del:hover{color:var(--high)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .empty{color:var(--ink-3);font-size:13px;padding:8px 0}
+  kbd{background:var(--raised);border:1px solid var(--border);border-radius:4px;
+      padding:1px 6px;font-size:11px;font-family:inherit}
+  .keys{color:var(--ink-2);font-size:12px;line-height:2}
+  .warn{color:var(--low);font-size:12px;margin-top:8px}
+  .ok{color:var(--good)}
+</style>
+</head>
+<body>
+
+<h1>Benchmark Labeller</h1>
+<p class="sub">Runs entirely in your browser — nothing is uploaded. Load a clip from
+<code>benchmark/clips/</code>, mark what you see and hear, then save the JSON into
+<code>benchmark/labels/</code>.</p>
+
+<div class="wrap">
+  <div>
+    <div class="card">
+      <div class="row">
+        <button class="primary" id="pick">Load video</button>
+        <button id="pickJson">Resume from label file</button>
+        <span id="clipName" class="sub" style="margin:0"></span>
+      </div>
+      <input type="file" id="file" accept="video/*" hidden />
+      <input type="file" id="jsonFile" accept="application/json" hidden />
+      <video id="v" controls></video>
+      <div class="time"><span id="tc">0.00</span><small> s &nbsp;/&nbsp; <span id="dur">0.00</span> s</small></div>
+      <div class="row">
+        <button class="mini" data-seek="-5">&laquo; 5s</button>
+        <button class="mini" data-seek="-1">&laquo; 1s</button>
+        <button class="mini" data-seek="-0.1">&laquo; 0.1s</button>
+        <button class="mini" data-seek="0.1">0.1s &raquo;</button>
+        <button class="mini" data-seek="1">1s &raquo;</button>
+        <button class="mini" data-seek="5">5s &raquo;</button>
+        <select id="rate" style="width:auto">
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Keyboard</h2>
+      <div class="keys">
+        <kbd>space</kbd> play/pause &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> 5s &nbsp;
+        <kbd>,</kbd><kbd>.</kbd> 0.1s &nbsp; <kbd>A</kbd> audio flag &nbsp;
+        <kbd>V</kbd> visual flag &nbsp; <kbd>[</kbd> spot start &nbsp; <kbd>]</kbd> spot end
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Clip details</h2>
+      <label for="source">Source / attribution</label>
+      <input id="source" placeholder="e.g. Creative Commons, youtube.com/watch?v=..." />
+      <label for="notes">Notes affecting difficulty</label>
+      <textarea id="notes" placeholder="e.g. background music under speech, strong accent, handheld"></textarea>
+      <div class="row" style="margin-top:12px">
+        <input type="checkbox" id="clean" style="width:auto" />
+        <label for="clean" style="margin:0">Clean clip — no violations anywhere (catches false positives)</label>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Audio flags <span class="sub" style="margin:0">— spoken restricted words</span></h2>
+      <div class="row">
+        <input id="wordIn" placeholder="word as actually spoken" style="flex:1" />
+        <button class="primary" id="addAudio">Add</button>
+      </div>
+      <div class="chips" id="dictChips"></div>
+      <div class="warn" id="dictWarn"></div>
+      <ul id="audioList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Visual risks</h2>
+      <div class="row">
+        <select id="catIn" style="flex:1">
+          <option>Weapon</option><option>Substance</option><option>Graphic</option>
+        </select>
+        <input id="objIn" placeholder="what it is (optional)" style="flex:1" />
+        <button class="primary" id="addVisual">Add</button>
+      </div>
+      <ul id="visualList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Ad spots <span class="sub" style="margin:0">— clear surfaces, 5s+</span></h2>
+      <div class="row">
+        <button id="spotStart">Mark start</button>
+        <button id="spotEnd">Mark end</button>
+        <select id="spotType" style="width:auto">
+          <option value="blank_wall">blank wall</option>
+          <option value="screen">screen</option>
+          <option value="empty_desk">empty desk</option>
+        </select>
+      </div>
+      <div class="sub" id="pendingSpot" style="margin:8px 0 0"></div>
+      <ul id="spotList"></ul>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button class="primary" id="save">Save label JSON</button>
+        <span class="sub" id="counts" style="margin:0"></span>
+      </div>
+      <div class="warn" id="saveHint"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Default dictionary, mirroring the application's seeded SystemConfig. The audio
+// engine can only flag words it was asked to look for, so labelling anything else
+// would measure the dictionary rather than the engine.
+const DICT = [
+  ["damn","low"],["hell","low"],["crap","low"],
+  ["piss","med"],["bastard","med"],["drugs","med"],
+  ["gun","high"],["kill","high"],["weapon","high"]
+];
+
+const v = document.getElementById("v");
+const state = { clip:"", audio:[], visual:[], ad_spots:[], pendingStart:null };
+
+const fmt = t => Number(t).toFixed(2);
+const now = () => v.currentTime || 0;
+
+document.getElementById("pick").onclick = () => document.getElementById("file").click();
+document.getElementById("pickJson").onclick = () => document.getElementById("jsonFile").click();
+
+document.getElementById("file").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  v.src = URL.createObjectURL(f);
+  if (!state.clip) state.clip = f.name;
+  document.getElementById("clipName").textContent = state.clip;
+  render();
+};
+
+document.getElementById("jsonFile").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      state.clip = d.clip || state.clip;
+      state.audio = d.audio || [];
+      state.visual = d.visual || [];
+      state.ad_spots = d.ad_spots || [];
+      document.getElementById("source").value = d.source || "";
+      document.getElementById("notes").value = d.notes || "";
+      document.getElementById("clipName").textContent = state.clip;
+      render();
+    } catch (err) { alert("Could not read that JSON: " + err.message); }
+  };
+  r.readAsText(f);
+};
+
+v.addEventListener("timeupdate", () => {
+  document.getElementById("tc").textContent = fmt(now());
+});
+v.addEventListener("loadedmetadata", () => {
+  document.getElementById("dur").textContent = fmt(v.duration);
+});
+document.getElementById("rate").onchange = e => { v.playbackRate = +e.target.value; };
+document.querySelectorAll("[data-seek]").forEach(b => {
+  b.onclick = () => { v.currentTime = Math.max(0, now() + parseFloat(b.dataset.seek)); };
+});
+
+// ---- adding events
+function addAudio(word) {
+  word = (word || document.getElementById("wordIn").value).trim();
+  if (!word) return;
+  state.audio.push({ word, at: +fmt(now()) });
+  document.getElementById("wordIn").value = "";
+  render();
+}
+function addVisual() {
+  const entry = { category: document.getElementById("catIn").value, at: +fmt(now()) };
+  const obj = document.getElementById("objIn").value.trim();
+  if (obj) entry.object = obj;
+  state.visual.push(entry);
+  document.getElementById("objIn").value = "";
+  render();
+}
+document.getElementById("addAudio").onclick = () => addAudio();
+document.getElementById("addVisual").onclick = addVisual;
+document.getElementById("wordIn").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); addAudio(); }
+});
+
+document.getElementById("spotStart").onclick = () => {
+  state.pendingStart = +fmt(now()); render();
+};
+document.getElementById("spotEnd").onclick = () => {
+  if (state.pendingStart === null) { alert("Mark the start first."); return; }
+  const end = +fmt(now());
+  if (end <= state.pendingStart) { alert("End must come after start."); return; }
+  state.ad_spots.push({
+    start: state.pendingStart, end,
+    type: document.getElementById("spotType").value
+  });
+  state.pendingStart = null;
+  render();
+};
+
+// ---- keyboard
+document.addEventListener("keydown", e => {
+  if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (e.code === "Space") { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+  else if (e.key === "ArrowLeft")  { e.preventDefault(); v.currentTime = Math.max(0, now()-5); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); v.currentTime = now()+5; }
+  else if (e.key === ",") { v.currentTime = Math.max(0, now()-0.1); }
+  else if (e.key === ".") { v.currentTime = now()+0.1; }
+  else if (k === "a") { e.preventDefault(); v.pause(); document.getElementById("wordIn").focus(); }
+  else if (k === "v") { e.preventDefault(); addVisual(); }
+  else if (e.key === "[") { document.getElementById("spotStart").click(); }
+  else if (e.key === "]") { document.getElementById("spotEnd").click(); }
+});
+
+// ---- rendering
+function sevOf(word) {
+  const hit = DICT.find(d => d[0] === String(word).toLowerCase());
+  return hit ? hit[1] : null;
+}
+const SEV_COLOR = { low:"var(--low)", med:"var(--med)", high:"var(--high)" };
+
+function listRow(time, colour, text, onDelete) {
+  const li = document.createElement("li");
+  const dot = document.createElement("span");
+  dot.className = "dot"; dot.style.background = colour;
+  const t = document.createElement("span");
+  t.className = "t"; t.textContent = fmt(time) + "s";
+  t.onclick = () => { v.currentTime = time; };
+  const label = document.createElement("span");
+  label.className = "grow"; label.textContent = text;
+  const del = document.createElement("button");
+  del.className = "del"; del.textContent = "x"; del.onclick = onDelete;
+  li.append(dot, t, label, del);
+  return li;
+}
+
+function render() {
+  document.getElementById("dictChips").innerHTML = "";
+  DICT.forEach(([w, sev]) => {
+    const c = document.createElement("span");
+    c.className = "chip " + sev; c.textContent = w;
+    c.onclick = () => addAudio(w);
+    document.getElementById("dictChips").appendChild(c);
+  });
+
+  const unknown = state.audio.filter(a => !sevOf(a.word)).map(a => a.word);
+  document.getElementById("dictWarn").textContent = unknown.length
+    ? "Not in the dictionary, so the engine cannot detect them: " + [...new Set(unknown)].join(", ")
+    : "";
+
+  const al = document.getElementById("audioList"); al.innerHTML = "";
+  [...state.audio].sort((a,b)=>a.at-b.at).forEach(a => {
+    al.appendChild(listRow(a.at, SEV_COLOR[sevOf(a.word)] || "var(--ink-3)",
+      '"' + a.word + '"', () => { state.audio.splice(state.audio.indexOf(a),1); render(); }));
+  });
+  if (!state.audio.length) al.innerHTML = '<div class="empty">No audio flags yet</div>';
+
+  const vl = document.getElementById("visualList"); vl.innerHTML = "";
+  [...state.visual].sort((a,b)=>a.at-b.at).forEach(x => {
+    vl.appendChild(listRow(x.at, "var(--med)",
+      x.category + (x.object ? " — " + x.object : ""),
+      () => { state.visual.splice(state.visual.indexOf(x),1); render(); }));
+  });
+  if (!state.visual.length) vl.innerHTML = '<div class="empty">No visual risks yet</div>';
+
+  const sl = document.getElementById("spotList"); sl.innerHTML = "";
+  [...state.ad_spots].sort((a,b)=>a.start-b.start).forEach(s => {
+    const dur = (s.end - s.start).toFixed(1);
+    const short = (s.end - s.start) < 5 ? "  (under 5s — will not qualify)" : "";
+    sl.appendChild(listRow(s.start, "var(--good)",
+      `${fmt(s.start)}-${fmt(s.end)}s  ${s.type}  [${dur}s]${short}`,
+      () => { state.ad_spots.splice(state.ad_spots.indexOf(s),1); render(); }));
+  });
+  if (!state.ad_spots.length) sl.innerHTML = '<div class="empty">No ad spots yet</div>';
+
+  document.getElementById("pendingSpot").textContent =
+    state.pendingStart === null ? "" : `start marked at ${fmt(state.pendingStart)}s — now mark the end`;
+
+  const n = state.audio.length + state.visual.length + state.ad_spots.length;
+  document.getElementById("counts").textContent =
+    `${state.audio.length} audio | ${state.visual.length} visual | ${state.ad_spots.length} spots`;
+  const clean = document.getElementById("clean").checked;
+  document.getElementById("saveHint").textContent =
+    (!n && !clean) ? "No events marked. If this clip genuinely has none, tick the clean-clip box above."
+                   : "";
+}
+
+document.getElementById("clean").onchange = render;
+
+document.getElementById("save").onclick = () => {
+  if (!state.clip) { alert("Load the video first so the clip name is recorded."); return; }
+  let notes = document.getElementById("notes").value.trim();
+  if (document.getElementById("clean").checked) {
+    notes = (notes ? notes + " " : "") +
+      "Clean clip - no violations expected. Exists to catch false positives.";
+  }
+  const out = {
+    clip: state.clip,
+    source: document.getElementById("source").value.trim(),
+    notes,
+    audio: [...state.audio].sort((a,b)=>a.at-b.at),
+    visual: [...state.visual].sort((a,b)=>a.at-b.at),
+    ad_spots: [...state.ad_spots].sort((a,b)=>a.start-b.start)
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = state.clip.replace(/\.[^.]+$/, "") + ".json";
+  a.click();
+};
+
+render();
+</script>
+</body>
+</html>

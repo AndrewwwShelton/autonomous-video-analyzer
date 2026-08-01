@@ -12,13 +12,82 @@ that cannot be compressed at the end, so start it now and run it alongside M2/M3
 ## Quick reference
 
 ```bash
+python benchmark/status.py                  # how far off are we?
+python benchmark/intake.py <video> --start 1:10 --end 2:00 --source "..."
+                                            # trim + register a clip
 python benchmark/evaluate.py --validate     # check label files, run nothing
 python benchmark/evaluate.py                # score the real engines
-python benchmark/evaluate.py --mode demo    # sanity-check the harness itself
 python benchmark/make_synthetic_clip.py     # regenerate the synthetic fixture
 ```
 
+Label clips in **`benchmark/labeller.html`** — open it directly in a browser, no
+server needed.
+
 Runs use a throwaway database, so benchmarking never touches your real library.
+
+---
+
+## The collection workflow
+
+```
+  find a clip  ->  intake.py  ->  labeller.html  ->  status.py  ->  evaluate.py
+   (sourcing)      (trim +        (mark events,      (what's       (the number)
+                   skeleton)       export JSON)       missing)
+```
+
+### 1. Source it
+
+Use material you are **allowed** to use. A project about content compliance that
+sources its own test data carelessly is an easy thing to be asked about.
+
+| Source | Notes |
+|---|---|
+| **Your own recordings** | Best option. Full rights, and you can stage exactly the events you need — say a scripted line containing a restricted word, or place a prop on a desk. |
+| **Pexels / Pixabay video** | Free for any use, no attribution required. Good for clean footage and blank surfaces. |
+| **YouTube, filtered to Creative Commons** | Search, then Filters > Features > Creative Commons. Record the URL and licence. |
+| **Internet Archive** | Large public-domain collection. Check the licence per item. |
+| **Wikimedia Commons** | Freely licensed, licence stated clearly on each file. |
+
+Record the licence and URL in `--source`. `status.py` flags any clip without it.
+
+Staging your own clips is not cheating: what is being measured is whether the tool
+detects an event that genuinely occurred, and you know the ground truth exactly.
+
+### 2. Trim it
+
+```bash
+python benchmark/intake.py ~/Downloads/vlog.mp4 --start 2:15 --end 3:15 \
+    --name kitchen_vlog --source "CC-BY, youtube.com/watch?v=..."
+```
+
+Thirty to ninety seconds is the sweet spot. The clip is re-encoded rather than
+stream-copied, because a stream copy can only cut on keyframes and would shift
+every timestamp — silently corrupting the labels.
+
+For a clip with nothing to find, add `--no-violations`.
+
+### 3. Label it
+
+Open `benchmark/labeller.html`, load the clip, and mark events as you watch.
+
+| Key | Action |
+|---|---|
+| <kbd>space</kbd> | play / pause |
+| <kbd>&larr;</kbd> <kbd>&rarr;</kbd> | seek 5 s |
+| <kbd>,</kbd> <kbd>.</kbd> | nudge 0.1 s |
+| <kbd>A</kbd> | pause and add an audio flag |
+| <kbd>V</kbd> | add a visual risk |
+| <kbd>[</kbd> <kbd>]</kbd> | ad-spot start / end |
+
+Save the JSON into `benchmark/labels/`. The tool warns if you label a word that is
+not in the dictionary, since the engine cannot detect what it was never asked to
+look for.
+
+### 4. Check coverage
+
+```bash
+python benchmark/status.py
+```
 
 ---
 
