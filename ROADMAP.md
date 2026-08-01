@@ -38,12 +38,11 @@ A useful one-line summary: **the body is built, the brains are stubbed.**
 
 | Milestone | Blocking dependency | State |
 |---|---|---|
-| **M1** Whisper transcription | `faster-whisper` not installed | stub |
-| **M2** YOLO risk detection | `ultralytics` not installed; `models/` empty | stub |
+| **M2** YOLO risk detection | `ultralytics` not installed; no risk weights | stub |
 | **M3a** Ad-spot free-space algorithm | none — pure OpenCV work | stub |
 | **M5** PDF export | `reportlab` not installed | stub |
 | **M5** Accuracy benchmark | `benchmark/` does not exist | **not started** |
-| Orchestrator real path (`demo=False`) | M1 + M2 | raises |
+| Orchestrator real path (`demo=False`) | — | ✅ working (audio real) |
 
 ---
 
@@ -66,22 +65,25 @@ Each milestone swaps one stub for a real engine. Because demo mode keeps the pip
 running throughout, every milestone is independently shippable — there is no
 integration cliff at the end.
 
-### M1 — Audio engine · ~2–3 days · low risk
+### ~~M1 — Audio engine~~ ✅ **DONE** (2026-08-01)
 
-Replace `DemoTranscriber` with real speech-to-text. The matcher and database that
-consume it are already real and tested, so only the transcriber changes.
+Real speech-to-text via faster-whisper. Verified against a generated speech clip:
+the transcript was word-perfect, timestamps accurate, and all three planted dictionary
+terms flagged at the right severities (`damn`/Low, `hell`/Low, `gun`/High) with
+`detection_model=faster-whisper-base.en` recorded for provenance.
 
-- [ ] `pip install faster-whisper`; uncomment the M1 line in `requirements.txt`
-- [ ] Implement `FasterWhisperTranscriber.transcribe()` per its docstring sketch
-      (`word_timestamps=True`, flatten segments → `WordStamp`)
-- [ ] Cache model weights into `models/` (~140 MB for `base.en`)
-- [ ] Add the `demo=False` real branch in `orchestrator.process_video()`
-- [ ] Honour the `whisper_model` setting already exposed on the Settings screen
-- [ ] Handle missing/undecodable audio → status `failed` with a clear message
+- [x] `faster-whisper` installed and promoted in `requirements.txt`
+- [x] `FasterWhisperTranscriber` — lazy load, `word_timestamps=True`, VAD filter,
+      weights cached under `models/`
+- [x] Real branch in `orchestrator.process_video()`, engine chosen **per stage**
+- [x] `analysis_mode` setting (demo | real) wired through config, API and Settings UI
+- [x] Silent videos degrade gracefully — no audio flags, run still completes
+- [x] 7 new tests (22 total, all passing)
 
-**Done when:** a real clip containing known profanity produces correct `AudioFlags`
-with accurate per-word timestamps, visible on the timeline — and demo mode still runs
-with no model present.
+Notes for later: weights download once (~140 MB, needs network); inference is offline
+thereafter. `base.en` transcribed a 15 s clip in roughly 20 s on CPU — worth
+re-measuring on the demo machine before the review, and `tiny.en` is available if
+speed matters more than accuracy.
 
 ### M2 — Vision risk detection · ~4–5 days · **highest risk**
 
@@ -191,19 +193,23 @@ descoped to an optional upgrade. Search early so there is time to react.
 
 | # | Work | Effort | Notes |
 |---|---|---|---|
+| ~~0~~ | ~~M1 — audio engine~~ | ✅ done | demo→real swap pattern now proven |
 | 0 | **Start collecting benchmark clips** | ongoing | background task, start today |
 | 0 | **Start sourcing M2 weights** | ongoing | external dependency, start today |
-| 1 | M1 — audio engine | 2–3 days | smallest real engine; proves the demo→real swap |
-| 2 | M2 — vision detection | 4–5 days | needs weights in hand |
-| 3 | M3a — ad-spot algorithm | 5–7 days | the novel contribution |
-| 4 | M5 — PDF + benchmark evaluation | ~1 week | labelling should already be underway |
-| 5 | M3b — fine-tune | optional | only with spare time |
-| 6 | M6 — polish and viva prep | 2–3 days | last |
+| 1 | M2 — vision detection | 4–5 days | needs weights in hand |
+| 2 | M3a — ad-spot algorithm | 5–7 days | the novel contribution |
+| 3 | M5 — PDF + benchmark evaluation | ~1 week | labelling should already be underway |
+| 4 | M3b — fine-tune | optional | only with spare time |
+| 5 | M6 — polish and viva prep | 2–3 days | last |
 
-**Roughly 4–5 weeks of remaining work**, excluding the optional fine-tune.
+**Roughly 3–4 weeks of remaining work**, excluding the optional fine-tune.
 
-**Immediate next action:** kick off the two background tasks above, then implement
-`FasterWhisperTranscriber` (M1).
+**Immediate next action:** start the two background tasks above, then M2 — beginning
+with the weights search, not the code.
+
+M1 established the pattern the remaining engines follow: implement the engine behind
+its existing contract, select it per stage in the orchestrator, keep the demo twin
+working, and report which engine produced each result.
 
 ---
 

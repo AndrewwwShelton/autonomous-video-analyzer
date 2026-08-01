@@ -111,6 +111,28 @@ export default function SettingsPage({ toast }) {
       <h1 className="page-title">Settings</h1>
 
       <div className="card form-card">
+        <h3>Analysis engines</h3>
+        <p className="muted-note">
+          Real mode runs the implemented AI engines. Demo mode substitutes deterministic
+          stand-ins, needs no model weights, and is instant — useful for demonstrations.
+        </p>
+        <div className="form-row">
+          <label htmlFor="analysis_mode">Mode</label>
+          <select id="analysis_mode" className="input" value={cfg.analysis_mode}
+                  onChange={(e) => set("analysis_mode", e.target.value)}>
+            <option value="demo">Demo — stand-in engines</option>
+            <option value="real">Real — run the AI models</option>
+          </select>
+        </div>
+        <p className="form-hint">
+          {cfg.analysis_mode === "real"
+            ? "Audio transcription is real (faster-whisper). Visual detection and ad-spot "
+              + "detection remain stand-ins until those milestones land."
+            : "All engines are stand-ins. Switch to Real to transcribe actual speech."}
+        </p>
+      </div>
+
+      <div className="card form-card">
         <h3>Restricted keyword dictionary</h3>
         <p className="muted-note">
           Words and phrases matched against the transcript. Changes apply to the next run.
@@ -156,13 +178,17 @@ export default function SettingsPage({ toast }) {
         <p className="form-hint">A Premium Ad Spot is a surface that stays clear this long.</p>
         {numberField("detection_confidence_threshold")}
         <div className="form-row">
-          <label htmlFor="whisper_model">Whisper model (from M1)</label>
+          <label htmlFor="whisper_model">Transcription model</label>
           <select id="whisper_model" className="input" value={cfg.whisper_model}
                   onChange={(e) => set("whisper_model", e.target.value)}>
             <option>tiny.en</option><option>base.en</option>
             <option>small.en</option><option>medium.en</option>
           </select>
         </div>
+        <p className="form-hint">
+          Larger models are more accurate and slower. Weights download once into
+          <code> models/</code> and are reused offline afterwards.
+        </p>
       </div>
 
       <div className="page-actions">

@@ -102,16 +102,22 @@ def delete_video(video_id: int) -> None:
 
 
 @router.post("/videos/{video_id}/analyze", status_code=202)
-def analyze(video_id: int, tasks: BackgroundTasks) -> dict:
+def analyze(video_id: int, tasks: BackgroundTasks, mode: str | None = None) -> dict:
+    """Queue analysis. `mode` overrides the stored analysis_mode for this run only."""
     v = repo.get_video(video_id)
     if v is None:
         raise HTTPException(404, "video not found")
     if v["processed_status"] == "processing":
         raise HTTPException(409, "analysis already running")
+
+    resolved = (mode or repo.get_config("analysis_mode") or "demo").lower()
+    if resolved not in ("demo", "real"):
+        raise HTTPException(400, f"Unknown analysis mode '{resolved}' — use 'demo' or 'real'.")
+
     progress.update(video_id, "Queued", 0.0)
-    tasks.add_task(process_video, video_id, True,
+    tasks.add_task(process_video, video_id, resolved == "demo",
                    lambda stage, frac: progress.update(video_id, stage, frac))
-    return {"video_id": video_id, "status": "processing"}
+    return {"video_id": video_id, "status": "processing", "mode": resolved}
 
 
 @router.get("/videos/{video_id}/status")

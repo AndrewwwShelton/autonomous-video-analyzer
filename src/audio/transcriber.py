@@ -2,11 +2,16 @@
 
 Contract: a transcriber returns a list of WordStamp — one entry per spoken word,
 with start/end times in seconds. The compliance matcher consumes exactly this shape,
-so swapping DemoTranscriber for FasterWhisperTranscriber at M1 changes nothing else.
+so DemoTranscriber and FasterWhisperTranscriber are interchangeable.
+
+Decision D3: faster-whisper over stock Whisper — 2-4x faster, lower memory, and native
+word-level timestamps, which the AudioFlags schema requires.
 """
 import random
 from dataclasses import dataclass
 from pathlib import Path
+
+from src import config
 
 
 @dataclass
@@ -16,25 +21,82 @@ class WordStamp:
     end: float
 
 
-class FasterWhisperTranscriber:
-    """Real engine — lands in M1. Kept as a documented shell so the contract is visible.
+class TranscriptionError(RuntimeError):
+    """Raised when audio cannot be transcribed, with a message fit for the UI."""
 
-    Implementation sketch (decision D3, PLAN.md):
-        from faster_whisper import WhisperModel
-        model = WhisperModel(model_size, device="auto", compute_type="int8")
-        segments, _ = model.transcribe(str(wav_path), word_timestamps=True)
-        return [WordStamp(w.word.strip(), w.start, w.end)
-                for seg in segments for w in seg.words]
+
+class FasterWhisperTranscriber:
+    """Local speech-to-text via faster-whisper (CTranslate2 backend).
+
+    Weights are cached under models/ so a given size is downloaded once. That first
+    download needs a network connection; every transcription afterwards is fully
+    offline, which is what the project's privacy requirement actually turns on.
+
+    The model is loaded lazily and reused, so repeated calls on one instance do not
+    reload several hundred megabytes of weights.
     """
 
-    def __init__(self, model_size: str = "base.en"):
+    def __init__(self, model_size: str = "base.en", device: str = "auto",
+                 compute_type: str = "int8"):
         self.model_size = model_size
+        self.device = device
+        self.compute_type = compute_type
+        self._model = None
+
+    def _load(self):
+        if self._model is None:
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError as e:  # pragma: no cover - environment guard
+                raise TranscriptionError(
+                    "faster-whisper is not installed. Run: pip install faster-whisper"
+                ) from e
+            config.MODELS_DIR.mkdir(parents=True, exist_ok=True)
+            try:
+                self._model = WhisperModel(
+                    self.model_size,
+                    device=self.device,
+                    compute_type=self.compute_type,
+                    download_root=str(config.MODELS_DIR),
+                )
+            except Exception as e:
+                raise TranscriptionError(
+                    f"Could not load the '{self.model_size}' model. If this is the first "
+                    f"run the weights must be downloaded once, which needs a network "
+                    f"connection. Underlying error: {e}"
+                ) from e
+        return self._model
 
     def transcribe(self, wav_path: Path) -> list[WordStamp]:
-        raise NotImplementedError(
-            "FasterWhisperTranscriber lands in M1 — `pip install faster-whisper` and "
-            "implement per the class docstring. Until then run the pipeline in demo mode."
-        )
+        """Transcribe a 16 kHz mono WAV into word-level stamps."""
+        # Check the input before loading several hundred megabytes of weights.
+        wav_path = Path(wav_path)
+        if not wav_path.exists():
+            raise TranscriptionError(f"Audio file not found: {wav_path}")
+
+        model = self._load()
+        try:
+            segments, _info = model.transcribe(
+                str(wav_path),
+                word_timestamps=True,   # required — AudioFlags stores per-word times
+                vad_filter=True,        # skip silence; avoids hallucinated text
+            )
+            words: list[WordStamp] = []
+            for segment in segments:          # generator — consumed here
+                for w in (segment.words or []):
+                    text = w.word.strip()
+                    if text:
+                        words.append(WordStamp(text, round(w.start, 2), round(w.end, 2)))
+            return words
+        except TranscriptionError:
+            raise
+        except Exception as e:
+            raise TranscriptionError(f"Transcription failed: {e}") from e
+
+    @property
+    def name(self) -> str:
+        """Value recorded in AudioFlags.detection_model for provenance."""
+        return f"faster-whisper-{self.model_size}"
 
 
 class DemoTranscriber:
@@ -57,6 +119,10 @@ class DemoTranscriber:
 
     def __init__(self, seed: int = 0):
         self.seed = seed
+
+    @property
+    def name(self) -> str:
+        return "demo-transcriber"
 
     def transcribe(self, duration_sec: float) -> list[WordStamp]:
         rng = random.Random(self.seed)

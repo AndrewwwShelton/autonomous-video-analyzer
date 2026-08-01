@@ -7,12 +7,13 @@ pandas>=2.0
 numpy>=1.26
 opencv-python>=4.9
 
+faster-whisper>=1.0        # M1 — local speech-to-text (D3)
+
 # Dev
 pytest>=8.0
 
 # Frontend: see frontend/package.json (React + Vite) — `npm install` in frontend/
 
 # --- AI engines (uncomment when the milestone lands) ---
-# faster-whisper>=1.0        # M1 — audio transcription (D3)
 # ultralytics>=8.2           # M2 — YOLOv8 detection
 # reportlab>=4.0             # M5 — PDF report export

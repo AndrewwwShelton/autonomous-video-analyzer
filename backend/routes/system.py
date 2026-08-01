@@ -23,6 +23,7 @@ class ConfigPayload(BaseModel):
     min_ad_spot_duration_sec: float
     detection_confidence_threshold: float
     whisper_model: str
+    analysis_mode: str = "demo"
 
 
 @router.get("/config")
@@ -33,6 +34,7 @@ def get_config() -> dict:
         "min_ad_spot_duration_sec": repo.get_config("min_ad_spot_duration_sec") or 5.0,
         "detection_confidence_threshold": repo.get_config("detection_confidence_threshold") or 0.5,
         "whisper_model": repo.get_config("whisper_model") or "base.en",
+        "analysis_mode": repo.get_config("analysis_mode") or "demo",
     }
 
 
@@ -47,6 +49,10 @@ def put_config(payload: ConfigPayload) -> dict:
     repo.set_config("detection_confidence_threshold",
                     payload.detection_confidence_threshold, "float")
     repo.set_config("whisper_model", payload.whisper_model, "string")
+    mode = payload.analysis_mode.lower()
+    if mode not in ("demo", "real"):
+        raise HTTPException(400, "analysis_mode must be 'demo' or 'real'")
+    repo.set_config("analysis_mode", mode, "string")
     return get_config()
 
 

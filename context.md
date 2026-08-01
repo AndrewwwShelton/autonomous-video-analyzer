@@ -4,8 +4,14 @@
 > picking the work back up. For *why* the design is shaped this way see [`PLAN.md`](PLAN.md);
 > for *what happens next* see [`ROADMAP.md`](ROADMAP.md).
 >
-> Last updated: 2026-08-01 · Status: **application complete, AI engines pending**
-> (skeleton + full web UI + Stage-4 UID document delivered; M1/M2/M3a stubs remain)
+> Last updated: 2026-08-01 · Status: **M1 complete — audio engine is real**
+> (application + UI + Stage-4 UID delivered; M2 vision and M3a ad-spots still stubbed)
+
+**Analysis mode.** The pipeline picks engines per stage from the `analysis_mode` setting
+(Settings screen, or `?mode=` on the analyze endpoint). `demo` uses deterministic
+stand-ins and needs no weights; `real` runs the implemented engines — as of M1 that is
+audio transcription. The run summary names the engine used for each stage, so demo
+output can never be mistaken for real output.
 
 ---
 
@@ -106,7 +112,7 @@ downstream.
 | FastAPI REST API (videos, analyze, flags, config, reports, media+range) | ✅ **real** |
 | React UI — 7 screens, responsive (4 breakpoints), light+dark, a11y pass | ✅ **real** |
 | Synthetic H.264 demo-video generator | ✅ **real** |
-| **Whisper transcription** | 🔲 **stub → M1** (`faster-whisper`, D3) |
+| **Whisper transcription** (faster-whisper, word timestamps, D3) | ✅ **real — M1 done** |
 | **YOLO risk detection** | 🔲 **stub → M2** (community weights, D1) |
 | **Ad-spot frame algorithm** (free-space detection) | 🔲 **stub → M3a** (spec in `src/vision/adspots.py`) |
 | **PDF export** | 🔲 **stub → M5** (`reportlab`) |

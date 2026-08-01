@@ -36,6 +36,9 @@ _DEFAULT_CONFIG = [
      "Minimum YOLO confidence for a visual flag to be recorded"),
     ("whisper_model", config.DEFAULT_WHISPER_MODEL, "string",
      "faster-whisper model size used for transcription (D3)"),
+    ("analysis_mode", "demo", "string",
+     "'real' runs implemented engines (audio as of M1); 'demo' uses deterministic "
+     "stand-ins and needs no model weights"),
 ]
 
 
