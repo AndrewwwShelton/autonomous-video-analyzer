@@ -212,6 +212,74 @@ Community weights come with someone else's class names. Normalise them to our `r
 
 ---
 
+## 6a. Risk-Weights Research (2026-08-01) — D1 revisited
+
+D1 assumed community pretrained weights would be readily available. Investigation at
+M2 shows that assumption was **partly wrong**, and the findings change the recommended
+route. Recorded here because provenance and licensing are viva questions.
+
+### Finding 1 — the framework itself is AGPL-3.0 ⚠️ *applies regardless of weights*
+
+Ultralytics YOLOv8 is licensed **AGPL-3.0**, and Ultralytics state the licence covers
+**the models produced by the training code**, not just the code. Implications:
+
+- Academic and educational use is explicitly endorsed — fine for this project.
+- AGPL is *copyleft*: publishing a derivative obliges you to publish source under the
+  same terms. Our repository is currently private; if it is ever made public or the
+  tool distributed, AGPL applies to it.
+- **Action:** state the AGPL dependency in the final report. It is a normal, defensible
+  choice for a student project, and being caught unaware of it is worse than the
+  obligation itself.
+
+### Finding 2 — Roboflow trained weights are paywalled, but the datasets are free
+
+The D1 plan named Roboflow Universe as a weights source. In fact:
+
+- **Downloading trained `.pt` weights requires a paid plan.** The free tier offers
+  hosted inference over their API — which needs an internet round trip and therefore
+  **violates the project's offline requirement outright**. This route is unusable.
+- **Datasets, however, are free**, commonly under **CC BY 4.0**, and export directly in
+  YOLOv8 format. Examples found: a 5,758-image weapons set, a 10,066-image weapons set,
+  and a 671-image 7-class set (handgun, rifle, knife, shotgun, sword, …).
+
+That inverts the original assumption: the *data* is available, the *weights* are not.
+
+### Finding 3 — public weapon weights are weak and largely unusable
+
+Every gun-detection model surveyed on HuggingFace had negligible adoption (0–13
+downloads, 0 likes), meaning none has been meaningfully vetted:
+
+| Model | Licence | Assessment |
+|---|---|---|
+| `Dricz/gun-obj-detection-5` | OpenRAIL | YOLOv8, `best.pt` present, but **mAP@0.5 = 0.47** and derived from a **VisDrone** (aerial) base — the wrong visual domain for creator video |
+| `Dricz/gun-obj-detection` … `-4`, `-6` | Apache-2.0 | DETR, not YOLO; would need a separate inference path |
+| `minkhantnaing/…`, `obelus0/…` | **none stated** | No licence means all rights reserved — **legally unusable** |
+
+### Finding 4 — the obvious smoking model does not mean what its name suggests
+
+`kittendev/YOLOv8m-smoke-detection` (AGPL-3.0, `best.pt` present) has a single class,
+`smoke`, and was trained on a **140-image** dataset. Its self-reported **mAP@0.5 =
+0.995** is implausible at that scale and points to evaluation on near-training data. It
+is also ambiguous whether it detects *cigarette smoking* or *fire smoke* — a semantic
+mismatch that would produce confident, wrong flags.
+
+### Finding 5 — third-party `.pt` files execute code on load
+
+PyTorch checkpoints are pickle-based, so loading one runs arbitrary code. Weights from
+an unvetted account are executable content, not inert data. Any adopted file should
+come from a named source with a stated licence.
+
+### Consequence for D1
+
+Community weights are **not** the low-risk unblock D1 assumed: they are variously
+paywalled, unlicensed, wrong-domain, or unverifiable. Because the *datasets* are freely
+licensed, **fine-tuning our own model (previously the optional M3b upgrade) is now the
+stronger path** — better provenance, a clear CC BY 4.0 licence to cite, a defensible
+academic contribution, and no trust problem. Meanwhile the shipped COCO weights already
+provide partial, honestly-reported coverage, so the pipeline is not blocked either way.
+
+---
+
 ## 7. Immediate Next Actions
 
 1. **Amend the SRS**: parallel → sequential (§0.3); soften the YOLO ad-spot claim (§0.2); update `detection_model` default (§0.4).
