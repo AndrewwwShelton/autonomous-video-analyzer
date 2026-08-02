@@ -22,15 +22,18 @@ in the project environment.
 
 **Which Open Images splits we use, and why.** Selecting from the `train` split
 forces a ~7 GB metadata download (a 4.8 GB image index plus ~2.5 GB of box
-annotations) before a single image arrives. The `validation` (41,620 images) and
-`test` (125,436 images) splits carry far smaller indexes and are annotated to the
-same standard, so we source from those and re-partition them ourselves:
+annotations) before a single image arrives. The `test` (125,436 images) and
+`validation` (41,620 images) splits carry far smaller indexes and are annotated to
+the same standard, so we source from those and re-partition them ourselves:
 
-    Open Images `validation`  ->  our training set
-    Open Images `test`        ->  our validation set
+    Open Images `test`        ->  our training set   (the larger split)
+    Open Images `validation`  ->  our validation set (the smaller split)
 
-The two never overlap, so this is a clean split, just not the one the dataset
-authors originally intended. Worth stating plainly in the report.
+The mapping follows the sizes, not the names: `test` holds three times as many
+images as `validation`, so it supplies the training data. Getting this backwards
+produces a validation set larger than the training set, which is exactly what a
+first run did. The two never overlap, so the split is clean -- just not the one
+the dataset authors originally intended. Worth stating plainly in the report.
 """
 import argparse
 import json
@@ -55,10 +58,10 @@ UNCOVERED = ["cigarette", "tobacco", "smoking", "drugs", "blood"]
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Fetch an Open Images V7 risk subset.")
-    ap.add_argument("--train", type=int, default=300,
-                    help="images PER CLASS for our training set (from OI 'validation')")
-    ap.add_argument("--val", type=int, default=80,
-                    help="images PER CLASS for our validation set (from OI 'test')")
+    ap.add_argument("--train", type=int, default=600,
+                    help="images PER CLASS for our training set (from OI 'test')")
+    ap.add_argument("--val", type=int, default=120,
+                    help="images PER CLASS for our validation set (from OI 'validation')")
     ap.add_argument("--seed", type=int, default=51, help="shuffle seed, for reproducibility")
     ap.add_argument("--clean", action="store_true", help="delete any previous export first")
     args = ap.parse_args()
@@ -86,9 +89,10 @@ def main() -> int:
     # detector. Requesting a quota per class keeps the rarer, higher-priority
     # weapon classes represented.
     #
-    # (Open Images split, per-class quota, the YOLO split we map it to)
-    for split, per_class, yolo_split in (("validation", args.train, "train"),
-                                         ("test", args.val, "val")):
+    # (Open Images split, per-class quota, the YOLO split we map it to).
+    # 'test' is the larger split, so it feeds training -- see module docstring.
+    for split, per_class, yolo_split in (("test", args.train, "train"),
+                                         ("validation", args.val, "val")):
         print(f"--- Open Images '{split}' -> our '{yolo_split}': "
               f"up to {per_class} images per class ---")
         total = 0
@@ -133,8 +137,8 @@ def main() -> int:
         "annotations_license": "CC BY 4.0",
         "images_license": "CC BY 2.0 (per-image; verify before redistribution)",
         "split_mapping": {
-            "our train": "Open Images 'validation' split",
-            "our val": "Open Images 'test' split",
+            "our train": "Open Images 'test' split (125,436 images -- the larger)",
+            "our val": "Open Images 'validation' split (41,620 images)",
             "why": ("the Open Images 'train' split requires a ~7 GB metadata download "
                     "before any image is selected; validation and test are annotated "
                     "to the same standard and do not overlap"),
