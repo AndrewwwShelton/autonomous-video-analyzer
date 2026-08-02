@@ -30,10 +30,15 @@ RISK_CATEGORY_MAP = {
     "knife": "Weapon", "scissors": "Weapon", "baseball bat": "Weapon",
     "bottle": "Substance", "wine glass": "Substance",
     # --- require a specialist model (absent from COCO) ---
+    # Firearms and blades: the classes our Open Images fine-tune is trained on
+    # (training/download_dataset.py) plus common synonyms other weights may use.
     "gun": "Weapon", "pistol": "Weapon", "rifle": "Weapon", "handgun": "Weapon",
-    "firearm": "Weapon", "weapon": "Weapon",
+    "shotgun": "Weapon", "firearm": "Weapon", "weapon": "Weapon",
+    "dagger": "Weapon", "sword": "Weapon", "axe": "Weapon",
+    # Alcohol and other substances.
     "cigarette": "Substance", "smoking": "Substance", "vape": "Substance",
-    "alcohol": "Substance", "beer": "Substance", "syringe": "Substance",
+    "alcohol": "Substance", "beer": "Substance", "wine": "Substance",
+    "cocktail": "Substance", "syringe": "Substance",
     "pills": "Substance", "drugs": "Substance",
     "blood": "Graphic", "corpse": "Graphic", "gore": "Graphic",
 }

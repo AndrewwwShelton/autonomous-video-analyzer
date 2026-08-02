@@ -49,6 +49,21 @@ def test_surface_classes_do_not_overlap_risk_classes():
     assert not (SURFACE_CLASSES & set(RISK_CATEGORY_MAP))
 
 
+def test_every_fine_tuned_class_is_mapped():
+    """Guards the detector.py boundary against a silent whole-class dropout.
+
+    An unmapped class is detected by the model and then discarded here without
+    trace. Five of the fine-tune's classes were unmapped when the trained
+    vocabulary first landed, so this checks the training class list explicitly.
+    """
+    from training.download_dataset import CLASSES
+    unmapped = [c for c in CLASSES if normalise_label(c) is None]
+    assert not unmapped, (
+        f"classes trained but not mapped to a risk category: {unmapped}. "
+        f"Add them to RISK_CATEGORY_MAP or their detections are silently dropped."
+    )
+
+
 # ------------------------------------------------------- detection -> flags
 
 def test_only_risk_detections_become_flags():
