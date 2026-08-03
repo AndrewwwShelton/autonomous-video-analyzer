@@ -41,7 +41,7 @@ labelled clips.
 | Item | State |
 |---|---|
 | **Benchmark labelling — 0 of 20 clips** | 🔴 the blocker |
-| **M5** PDF export | stub |
+| ~~**M5** PDF export~~ | ✅ done |
 | GPU quality run for the fine-tune | optional |
 | SRS amendments (PLAN §0) | pending |
 | Resolve the ambiguous `Wine` class | pending |
@@ -138,9 +138,12 @@ textured region and stopping above a moving figure. 27 tests cover the geometry.
 
 ### M5 — Reports and evaluation · ~1 week · **schedule risk**
 
-**PDF export**
-- [ ] `pip install reportlab`; implement `exporter.export_pdf()` from the `_gather()` dict
-- [ ] Enable the PDF option on the Reports screen (currently disabled)
+**PDF export** ✅ **DONE** (2026-08-03)
+- [x] `reportlab` renderer in `src/reports/pdf_report.py` — verdict banner, summary,
+      drawn three-lane timeline, per-category tables, provenance footer
+- [x] Enabled and defaulted on the Reports screen; PDF export on the video detail page
+- [x] Demo-generated reports say so in bold, so they cannot pass as an audit result
+- [x] 11 tests, including pagination and tolerance of missing optional fields
 
 **Accuracy benchmark** — harness ✅ done, labelling ⏳ outstanding
 - [x] `benchmark/` harness: matching rules, metrics, CLI, label validator

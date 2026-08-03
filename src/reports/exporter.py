@@ -1,7 +1,8 @@
 """Compliance report export (Module 4 / SRS Use Case 2).
 
-CSV and JSON are real; PDF lands in M5 (reportlab). Every export is archived as an
-AuditReports row per the DDD.
+CSV, JSON and PDF. Every export is archived as an AuditReports row per the DDD.
+Rendering for the PDF lives in pdf_report.py — this module assembles data, that one
+presents it.
 """
 import json
 from datetime import datetime
@@ -76,7 +77,13 @@ def export_json(video_id: int) -> Path:
 
 
 def export_pdf(video_id: int) -> Path:
-    raise NotImplementedError(
-        "PDF export lands in M5 — `pip install reportlab`, render the _gather() dict "
-        "into a formatted summary. CSV and JSON exports are available now."
-    )
+    """Formatted compliance report — the format an auditor actually sends on."""
+    from src.reports.pdf_report import build_pdf
+
+    data = _gather(video_id)
+    config.ensure_dirs()
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out = config.REPORTS_DIR / f"audit_video{video_id}_{stamp}.pdf"
+    build_pdf(data, out)
+    _archive(video_id, "PDF", out, data)
+    return out

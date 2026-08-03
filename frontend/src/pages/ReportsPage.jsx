@@ -5,7 +5,7 @@ export default function ReportsPage({ toast }) {
   const [videos, setVideos] = useState([]);
   const [reports, setReports] = useState([]);
   const [videoId, setVideoId] = useState("");
-  const [format, setFormat] = useState("CSV");
+  const [format, setFormat] = useState("PDF");
 
   const load = useCallback(async () => {
     const [v, r] = await Promise.all([api.listVideos(), api.listReports()]);
@@ -54,11 +54,16 @@ export default function ReportsPage({ toast }) {
         <div className="form-row">
           <label>Format</label>
           <select className="input" value={format} onChange={(e) => setFormat(e.target.value)}>
+            <option>PDF</option>
             <option>CSV</option>
             <option>JSON</option>
-            <option disabled>PDF (available in M5)</option>
           </select>
         </div>
+        <p className="form-hint">
+          {format === "PDF"
+            ? "Formatted report with verdict, timeline and findings — the version to send on."
+            : "Raw records for spreadsheets or further processing."}
+        </p>
         <div className="page-actions">
           <button className="btn btn--primary" onClick={generate} disabled={!videoId}>
             Generate report

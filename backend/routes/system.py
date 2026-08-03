@@ -90,7 +90,7 @@ def create_report(req: ReportRequest) -> dict:
     elif fmt == "JSON":
         exporter.export_json(req.video_id)
     elif fmt == "PDF":
-        raise HTTPException(501, "PDF export lands in milestone M5 — use CSV or JSON.")
+        exporter.export_pdf(req.video_id)
     else:
         raise HTTPException(400, f"Unknown format {req.format}")
     return repo.list_reports(req.video_id)[0]
@@ -104,5 +104,6 @@ def download_report(report_id: int):
     path = Path(rows[0]["file_path"])
     if not path.exists():
         raise HTTPException(410, "report file no longer on disk")
-    media = "text/csv" if path.suffix == ".csv" else "application/json"
+    media = {".csv": "text/csv", ".json": "application/json",
+             ".pdf": "application/pdf"}.get(path.suffix, "application/octet-stream")
     return FileResponse(path, media_type=media, filename=path.name)

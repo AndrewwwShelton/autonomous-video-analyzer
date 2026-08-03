@@ -4,14 +4,15 @@
 > picking the work back up. For *why* the design is shaped this way see [`PLAN.md`](PLAN.md);
 > for *what happens next* see [`ROADMAP.md`](ROADMAP.md).
 >
-> Last updated: 2026-08-01 · Status: **M1 complete — audio engine is real**
-> (application + UI + Stage-4 UID delivered; M2 vision and M3a ad-spots still stubbed)
+> Last updated: 2026-08-03 · Status: **every AI engine is real; evidence outstanding**
+> (M1 audio · M2 vision · M3a ad-spots · M3b fine-tune · M5 PDF all complete.
+> The benchmark has zero labelled clips, so the SRS accuracy claim is unevidenced.)
 
 **Analysis mode.** The pipeline picks engines per stage from the `analysis_mode` setting
 (Settings screen, or `?mode=` on the analyze endpoint). `demo` uses deterministic
-stand-ins and needs no weights; `real` runs the implemented engines — as of M1 that is
-audio transcription. The run summary names the engine used for each stage, so demo
-output can never be mistaken for real output.
+stand-ins and needs no weights; `real` runs the AI models. The run summary names the
+engine used for each stage, and the PDF report repeats it, so demo output can never be
+mistaken for a real audit result.
 
 ---
 
@@ -108,17 +109,19 @@ downstream.
 | Sequential orchestrator + background runs + progress registry | ✅ **real** |
 | Audio extraction → 16 kHz mono WAV (bundled ffmpeg) | ✅ **real** |
 | Frame sampler + thumbnailer (OpenCV, seek-based 1 FPS) | ✅ **real** |
-| CSV / JSON report export + `AuditReports` archive | ✅ **real** |
+| CSV / JSON / **PDF** report export + `AuditReports` archive | ✅ **real** |
 | FastAPI REST API (videos, analyze, flags, config, reports, media+range) | ✅ **real** |
 | React UI — 7 screens, responsive (4 breakpoints), light+dark, a11y pass | ✅ **real** |
 | Synthetic H.264 demo-video generator | ✅ **real** |
 | **Whisper transcription** (faster-whisper, word timestamps, D3) | ✅ **real — M1 done** |
-| **YOLO risk detection** | 🔲 **stub → M2** (community weights, D1) |
+| **YOLO risk detection** (COCO + our fine-tune, 13 risk labels) | ✅ **real — M2/M3b done** |
 | **Ad-spot free-space algorithm** (the novel contribution) | ✅ **real — M3a done** |
-| **PDF export** | 🔲 **stub → M5** (`reportlab`) |
+| **PDF export** (formatted compliance report) | ✅ **real — M5 done** |
 
-Each stub raises a clear `NotImplementedError` pointing at its milestone and carries the
-full implementation sketch in its docstring.
+**Every engine is now real.** The `Demo*` twins remain and are still exercised by demo
+mode, which needs no model weights and is the safer choice for a live demonstration.
+The run summary names the engine behind each stage, so demo output can never be
+mistaken for a real audit result — and the PDF report prints the same warning.
 
 ---
 

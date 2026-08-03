@@ -57,10 +57,11 @@ export default function VideoDetailPage({ toast }) {
         </button>
         <h1>{video.filename}</h1>
         <MonetizationBadge verdict={flags.verdict} />
-        <button className="btn btn--outline" onClick={() => exportReport("CSV")}>
+        <button className="btn btn--outline" onClick={() => exportReport("PDF")}>
           <span className="material-symbols-outlined" style={{ fontSize: 20 }} aria-hidden="true">download</span>
-          Export CSV
+          Export PDF
         </button>
+        <button className="btn btn--outline" onClick={() => exportReport("CSV")}>CSV</button>
         <button className="btn btn--outline" onClick={() => exportReport("JSON")}>JSON</button>
       </div>
 

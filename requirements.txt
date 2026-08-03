@@ -9,11 +9,10 @@ opencv-python>=4.9
 
 faster-whisper>=1.0        # M1 — local speech-to-text (D3)
 ultralytics>=8.2           # M2 — COCO YOLOv8 detection (D4)
+reportlab>=4.0             # M5 — PDF compliance reports
 
 # Dev
 pytest>=8.0
 
 # Frontend: see frontend/package.json (React + Vite) — `npm install` in frontend/
 
-# --- AI engines (uncomment when the milestone lands) ---
-# reportlab>=4.0             # M5 — PDF report export
