@@ -114,7 +114,7 @@ downstream.
 | Synthetic H.264 demo-video generator | ✅ **real** |
 | **Whisper transcription** (faster-whisper, word timestamps, D3) | ✅ **real — M1 done** |
 | **YOLO risk detection** | 🔲 **stub → M2** (community weights, D1) |
-| **Ad-spot frame algorithm** (free-space detection) | 🔲 **stub → M3a** (spec in `src/vision/adspots.py`) |
+| **Ad-spot free-space algorithm** (the novel contribution) | ✅ **real — M3a done** |
 | **PDF export** | 🔲 **stub → M5** (`reportlab`) |
 
 Each stub raises a clear `NotImplementedError` pointing at its milestone and carries the

@@ -3,18 +3,18 @@
 > Tactical, task-level plan for the remaining work. Current state is described in
 > [`context.md`](context.md); strategy and decision rationale in [`PLAN.md`](PLAN.md).
 >
-> Last updated: **2026-08-01** · Status: **application complete, AI engines pending**
+> Last updated: **2026-08-03** · Status: **every AI engine is real; evidence outstanding**
 
 ---
 
 ## 1. Status snapshot
 
-Roughly three weeks of build. The application is finished end-to-end — ingestion,
-orchestration, database, API, a seven-screen interface, and reporting all work. What
-remains is the part that makes it *intelligent*: three model-backed engines that are
-currently deterministic stubs.
+The pipeline is complete. Audio transcribes, vision detects, ad-spots are found by the
+free-space algorithm, and all of it lands in the database and the interface.
 
-A useful one-line summary: **the body is built, the brains are stubbed.**
+The one-line summary has changed: **the tool works — what it lacks is proof.** The SRS
+claims ">85% precision" and the benchmark that would substantiate it still has zero
+labelled clips.
 
 ### Done
 
@@ -23,39 +23,41 @@ A useful one-line summary: **the body is built, the brains are stubbed.**
 | SQLite schema (6 DDD tables), WAL, FK, config seeding | tested |
 | Repository / CRUD layer | tested |
 | Keyword compliance matcher (word-boundary + phrases) | tested |
+| **M1** Audio — faster-whisper, word timestamps, graceful on silent video | tested |
+| **M2** Vision — COCO + fine-tuned risk model, 13 risk labels | tested |
+| **M3a** Ad-spot free-space algorithm ★ | tested |
+| **M3b** Fine-tune — Open Images, mAP@50 0.566 | measured |
 | Temporal ad-spot tracker (IoU merge, ≥5 s rule) | tested |
-| Sequential orchestrator, background runs, progress reporting | working |
-| Audio extraction → 16 kHz mono WAV (bundled ffmpeg) | working |
-| Frame sampler + thumbnailer (OpenCV) | working |
-| CSV / JSON export + `AuditReports` archive | working |
-| REST API — 12 endpoints incl. `/stats`, range-served media | working |
+| Sequential orchestrator, background runs, per-stage engine reporting | working |
+| REST API — 13 endpoints incl. `/stats`, `/vision-coverage` | working |
 | React UI — 7 screens, 4 breakpoints, light+dark, a11y pass | working |
+| Benchmark harness with stub-exclusion and small-sample guards | tested |
 | Deliverables: Synopsis · SRS · DDD · **UID** · Justification | submitted |
 
-~1,340 lines Python, ~2,140 lines frontend, 15 passing tests, 4 commits pushed.
+84 passing tests.
 
 ### Not done
 
-| Milestone | Blocking dependency | State |
-|---|---|---|
-| **M2** YOLO risk detection | `ultralytics` not installed; no risk weights | stub |
-| **M3a** Ad-spot free-space algorithm | none — pure OpenCV work | stub |
-| **M5** PDF export | `reportlab` not installed | stub |
-| **M5** Accuracy benchmark | `benchmark/` does not exist | **not started** |
-| Orchestrator real path (`demo=False`) | — | ✅ working (audio real) |
+| Item | State |
+|---|---|
+| **Benchmark labelling — 0 of 20 clips** | 🔴 the blocker |
+| **M5** PDF export | stub |
+| GPU quality run for the fine-tune | optional |
+| SRS amendments (PLAN §0) | pending |
+| Resolve the ambiguous `Wine` class | pending |
 
 ---
 
 ## 2. What changed since the last update
 
-- **M4 (interface) was completed out of order**, ahead of M1–M3. This was driven by the
-  Stage-4 UID document deadline and was the right call — the document needed a real
-  interface to photograph, and the UI is now fixed while the engines land behind it.
-- The interface grew from 4 screens to **7** (Dashboard and Analytics added), gained a
-  `/api/stats` aggregate endpoint, four responsive breakpoints, an accessibility pass,
-  and inline validation.
-- **The benchmark still has not been started.** It was flagged as "start now, in the
-  background" in the previous revision and did not happen. See §4.
+- **M1, M2, M3a and M3b all landed.** The last stub of substance is PDF export.
+- **M3b was promoted from optional and done early.** The weights research
+  (`PLAN.md` §6a) found every community candidate paywalled, unlicensed,
+  wrong-domain or unverifiable, so training our own became the *lower*-risk route.
+- **M3a is complete** — the novel contribution is built and verified, not just planned.
+- **The benchmark still has no labelled clips.** Flagged as the top risk in the
+  previous two revisions. It is now the only thing standing between the project and a
+  defensible accuracy claim.
 
 ---
 
@@ -85,48 +87,54 @@ thereafter. `base.en` transcribed a 15 s clip in roughly 20 s on CPU — worth
 re-measuring on the demo machine before the review, and `tiny.en` is available if
 speed matters more than accuracy.
 
-### M2 — Vision risk detection · ~4–5 days · **highest risk**
+### ~~M2 — Vision risk detection~~ ✅ **DONE** (2026-08-01 → 08-03)
 
-Replace `DemoDetector` with real object detection. Per decision D1, integrate community
-pretrained weights first; a custom fine-tune is a later upgrade, not a dependency.
+Real object detection over sampled frames. Two models per decision D4: COCO for scene
+understanding and occupancy, a fine-tuned model for the risk taxonomy COCO cannot see.
 
-- [ ] **Source community risk weights** (Roboflow Universe / HuggingFace) covering
-      gun / knife / cigarette / alcohol → `models/risk_yolov8.pt`
-- [ ] Confirm the licence permits academic use; record the source in `PLAN.md`
-- [ ] `pip install ultralytics`
-- [ ] Implement `YoloRiskDetector.detect()`
-- [ ] Extend `RISK_CATEGORY_MAP` to normalise the model's actual class names into our
-      `Weapon` / `Substance` / `Graphic` vocabulary at the detector boundary
-- [ ] Apply the confidence threshold from `SystemConfig`
+- [x] `ultralytics` installed; COCO weights cached in `models/`
+- [x] `YoloDetector` — lazy load, several weight files at once, raw detections with
+      risk classification as a separate step
+- [x] `RISK_CATEGORY_MAP` normalises class names at the detector boundary
+- [x] Confidence threshold honoured from `SystemConfig`
+- [x] `/api/vision-coverage` reports what the loaded weights can actually find,
+      surfaced on the Settings screen
+- [x] Community weights route abandoned after research — see `PLAN.md` §6a — and
+      replaced by our own fine-tune (M3b)
 
-**Done when:** a clip containing a knife, bottle or cigarette yields correct
-`VisualFlags`, and the verdict flips to `Restricted` when a weapon appears.
+**Coverage:** 13 risk labels — handgun, rifle, shotgun, dagger, sword, knife,
+scissors, baseball bat, beer, wine, cocktail, wine glass, bottle. `Graphic` remains
+uncovered, and **smoking is uncovered by any reputable source found**.
 
-> **Start the weights search first, before writing any code.** It is the only task in
-> the project with an external dependency that can stall, and everything in M2 waits on
-> it. Pair a second person here.
+Verified end-to-end: a held-out image containing a rifle and shotgun produced both
+detections and flipped the verdict to `Restricted`.
 
-### M3a — Ad-spot free-space algorithm · ~5–7 days · ★ where the marks are
+### ~~M3a — Ad-spot free-space algorithm~~ ✅ **DONE** (2026-08-03) ★
 
-Replace `DemoAdSpotFinder` with the real per-frame algorithm. The temporal tracker that
-merges candidates into ≥5 s spots is already real and tested — this milestone only
-produces the per-frame candidates it consumes.
+The project's novel contribution. Detecting the *absence* of objects is not an
+object-detection problem, so this is the one component that could not be solved by
+pointing another pretrained model at it.
 
-Implement `find_ad_spot_candidates()` (spec in its docstring and `PLAN.md` §2.2):
+Implemented in `src/vision/adspots.py`:
+- Occupancy mask from the detection boxes; **busy mask** from Canny edge density
+  *and* local intensity variance (each catches what the other misses — hard
+  structure versus soft clutter)
+- Free space = NOT occupied AND NOT busy
+- **Maximal rectangle in a binary matrix**, histogram/monotonic-stack method, O(w·h);
+  top-K disjoint rectangles by greedy erase
+- Classification from neighbouring detections (screen / empty desk / blank wall)
+- Multiplicative score over area × uniformity × centrality, so a rectangle must be
+  reasonable on every axis
+- Runs at ~320 px working width: the DP is linear in pixel count, so this is ~30×
+  cheaper with no practical loss for ad geometry
 
-- [ ] COCO YOLOv8n pass for scene occupancy → union boxes into an occupancy mask
-- [ ] Busy mask — Canny edge density + local colour variance
-- [ ] Free space = `NOT occupied AND NOT busy`
-- [ ] Largest inscribed rectangles (maximal-rectangle DP, `O(w·h)`)
-- [ ] Classify `spot_type` — screen / blank wall / empty desk
-- [ ] Score `area × uniformity × centrality` → `suitability_score`
+Wired into the orchestrator as **one inference pass, two consumers** (decision D4) —
+the same detections feed risk flags and the occupancy mask, so frames are decoded and
+models run once.
 
-**Done when:** on real footage, stable blank surfaces persisting ≥5 s become `AdSpots`
-with plausible geometry, and short-lived surfaces are correctly discarded.
-
-> This is the project's novel contribution. Detecting the *absence* of objects is not an
-> object-detection problem, which is exactly what makes it defensible in the viva.
-> Budget time accordingly and keep notes on the algorithm design as you go.
+**Verified end-to-end** on a clip with a flat wall on one side and random texture on
+the other: found a single 13-second `blank_wall` spot at x≥453, clear of the 403 px
+textured region and stopping above a moving figure. 27 tests cover the geometry.
 
 ### M5 — Reports and evaluation · ~1 week · **schedule risk**
 
@@ -224,23 +232,23 @@ descoped to an optional upgrade. Search early so there is time to react.
 
 | # | Work | Effort | Notes |
 |---|---|---|---|
-| ~~0~~ | ~~M1 — audio engine~~ | ✅ done | demo→real swap pattern now proven |
-| 0 | **Start collecting benchmark clips** | ongoing | background task, start today |
-| 0 | **Start sourcing M2 weights** | ongoing | external dependency, start today |
-| 1 | M2 — vision detection | 4–5 days | needs weights in hand |
-| 2 | M3a — ad-spot algorithm | 5–7 days | the novel contribution |
-| 3 | M5 — PDF + benchmark evaluation | ~1 week | labelling should already be underway |
-| 4 | M3b — fine-tune | optional | only with spare time |
-| 5 | M6 — polish and viva prep | 2–3 days | last |
+| ~~—~~ | ~~M1 audio · M2 vision · M3a ad-spots · M3b fine-tune~~ | ✅ done | every engine is real |
+| **1** | **Label 20 benchmark clips** | ~1–2 weeks elapsed | 🔴 **the only real blocker** |
+| 2 | M5 — PDF export | ~half a day | `reportlab`, render the `_gather()` dict |
+| 3 | Run the benchmark, record the figure | ~1 hour | needs step 1 |
+| 4 | SRS amendments (§6) | ~1 hour | keeps the documents honest |
+| 5 | GPU quality run for the fine-tune | ~30 min | optional; 0.566 → likely better |
+| 6 | M6 — polish and viva prep | 2–3 days | last |
 
-**Roughly 3–4 weeks of remaining work**, excluding the optional fine-tune.
+**Roughly 2–3 weeks of remaining work**, and almost all of it is step 1 — which is
+manual labelling, not engineering.
 
-**Immediate next action:** start the two background tasks above, then M2 — beginning
-with the weights search, not the code.
+**Immediate next action:** label clips. Nothing else is blocked, and nothing else
+changes the fact that the accuracy claim currently has no evidence behind it.
 
-M1 established the pattern the remaining engines follow: implement the engine behind
-its existing contract, select it per stage in the orchestrator, keep the demo twin
-working, and report which engine produced each result.
+The engines established a repeatable pattern worth keeping if anything else is added:
+implement behind the existing contract, select per stage in the orchestrator, keep the
+demo twin working, and report which engine produced each result.
 
 ---
 

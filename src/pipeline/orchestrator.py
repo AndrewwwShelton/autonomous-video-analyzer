@@ -20,7 +20,7 @@ from src.audio.extractor import NoAudioTrackError, extract_audio
 from src.audio.transcriber import (DemoTranscriber, FasterWhisperTranscriber,
                                    TranscriptionError)
 from src.db import repository as repo
-from src.vision.adspots import DemoAdSpotFinder
+from src.vision.adspots import DemoAdSpotFinder, find_ad_spot_candidates
 from src.vision.detector import (DemoDetector, DetectorError, YoloDetector,
                                  to_risk_flags)
 from src.vision.sampler import sample_frames
@@ -68,8 +68,17 @@ def _run_audio_stage(video: dict, demo: bool, report: ProgressCallback) -> tuple
     return flags, engine
 
 
-def _run_vision_stage(video: dict, demo: bool, report: ProgressCallback) -> tuple[list, str]:
-    """Sample frames and detect visual risks. Returns (visual_flag_dicts, engine_name)."""
+def _run_vision_stage(video: dict, demo: bool,
+                      report: ProgressCallback) -> tuple[list, str, list]:
+    """Sample frames once, producing both risk flags and ad-spot candidates.
+
+    Decision D4: one inference pass, two consumers. Detections identify visual
+    risks, and the same detections define the occupancy mask the free-space
+    algorithm needs -- so the frames are decoded and the models run only once.
+
+    Returns (visual_flag_dicts, engine_name, per_frame_adspot_candidates). The
+    candidate list is empty in demo mode, where the demo finder supplies its own.
+    """
     video_id = video["video_id"]
     duration = video["duration_sec"]
     threshold = repo.get_config("detection_confidence_threshold") or 0.5
@@ -81,25 +90,29 @@ def _run_vision_stage(video: dict, demo: bool, report: ProgressCallback) -> tupl
                                 video["resolution_width"] or 1280,
                                 video["resolution_height"] or 720)
         flags = [f for f in flags if f["confidence_score"] >= threshold]
-        engine = detector.name
-    else:
-        sample_fps = repo.get_config("frame_sample_fps") or 1.0
-        weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
-        detector = YoloDetector(tuple(weights), confidence_threshold=threshold)
-        engine = detector.name
+        repo.insert_visual_flags(video_id, flags)
+        return flags, detector.name, []
 
-        flags = []
-        expected = max(1, int(duration * sample_fps))
-        for i, (timestamp, frame) in enumerate(sample_frames(Path(video["filepath"]),
-                                                             sample_fps)):
-            flags += to_risk_flags(detector.detect_frame(frame, timestamp))
-            if i % 5 == 0:
-                # Vision dominates runtime, so it owns the 0.40-0.75 progress band.
-                report(f"Scanning frames ({i + 1}/{expected})",
-                       0.40 + 0.35 * min(1.0, (i + 1) / expected))
+    sample_fps = repo.get_config("frame_sample_fps") or 1.0
+    weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
+    detector = YoloDetector(tuple(weights), confidence_threshold=threshold)
+
+    flags: list = []
+    frames_candidates: list[tuple[float, list[dict]]] = []
+    expected = max(1, int(duration * sample_fps))
+
+    for i, (timestamp, frame) in enumerate(sample_frames(Path(video["filepath"]),
+                                                         sample_fps)):
+        detections = detector.detect_frame(frame, timestamp)
+        flags += to_risk_flags(detections)
+        frames_candidates.append((timestamp, find_ad_spot_candidates(frame, detections)))
+        if i % 5 == 0:
+            # Vision dominates runtime, so it owns the 0.40-0.75 progress band.
+            report(f"Scanning frames ({i + 1}/{expected})",
+                   0.40 + 0.35 * min(1.0, (i + 1) / expected))
 
     repo.insert_visual_flags(video_id, flags)
-    return flags, engine
+    return flags, detector.name, frames_candidates
 
 
 def process_video(video_id: int, demo: bool = True,
@@ -132,18 +145,24 @@ def process_video(video_id: int, demo: bool = True,
         # Stage 1 — Audio & NLP (Module 1). Real as of M1.
         audio_flags, engines["audio"] = _run_audio_stage(video, demo, report)
 
-        # Stage 2 — Vision risks (Module 2). Real as of M2.
-        visual_flags, engines["visual"] = _run_vision_stage(video, demo, report)
+        # Stage 2 — Vision risks (Module 2). Real as of M2. Also yields the
+        # per-frame ad-spot candidates, from the same inference pass.
+        visual_flags, engines["visual"], frame_candidates = _run_vision_stage(
+            video, demo, report)
 
-        # Stage 3 — Ad spots. Demo candidates feed the REAL temporal tracker until M3a.
+        # Stage 3 — Ad spots (Module 2). Real as of M3a. The temporal tracker was
+        # already real; this now feeds it genuine free-space geometry.
         report("Locating ad placement surfaces", 0.80)
         sample_fps = repo.get_config("frame_sample_fps") or 1.0
         min_dur = repo.get_config("min_ad_spot_duration_sec") or 5.0
-        frames = DemoAdSpotFinder(seed=video_id).candidates_by_frame(
-            duration, width, height, sample_fps)
-        spots = merge_candidates(frames, min_duration_sec=min_dur)
+        if demo:
+            frame_candidates = DemoAdSpotFinder(seed=video_id).candidates_by_frame(
+                duration, width, height, sample_fps)
+            engines["ad_spots"] = "demo-adspots + real tracker"
+        else:
+            engines["ad_spots"] = "free-space + real tracker"
+        spots = merge_candidates(frame_candidates, min_duration_sec=min_dur)
         repo.insert_ad_spots(video_id, spots)
-        engines["ad_spots"] = "demo-adspots + real tracker"
 
         repo.update_video_status(video_id, "completed")
         report("Done", 1.0)
