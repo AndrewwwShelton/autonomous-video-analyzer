@@ -15,9 +15,24 @@ export default function TopBar({
           <span className="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
         <Link className="logo" to="/" aria-label="AdSafe Studio home">
-          <span className="logo__mark" aria-hidden="true">
-            <span className="material-symbols-outlined">play_arrow</span>
-          </span>
+          {/* Own mark, deliberately not derived from any platform's branding.
+              Crop-mark corners frame a checked area: a verified safe region of
+              video, which is exactly what the tool produces. */}
+          <svg className="logo__mark" viewBox="0 0 32 32" aria-hidden="true"
+               focusable="false">
+            <defs>
+              <linearGradient id="adsafe-mark" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#7c5cff" />
+                <stop offset="100%" stopColor="#4c6ef5" />
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="9" fill="url(#adsafe-mark)" />
+            <g fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 12.4V10.6h1.9M21 12.4V10.6h-1.9M11 19.6v1.8h1.9M21 19.6v1.8h-1.9"
+                    strokeWidth="1.9" opacity="0.85" />
+              <path d="M12.4 16.3l2.5 2.5 5-5.4" strokeWidth="2.5" />
+            </g>
+          </svg>
           <span className="logo__text">AdSafe <b>Studio</b></span>
         </Link>
       </div>

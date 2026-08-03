@@ -30,7 +30,6 @@
   --blue-wash: rgba(62, 166, 255, 0.15);
   --on-blue: #0f0f0f;     /* text on a filled blue button */
   --red: #ff4e45;
-  --logo-red: #ff0033;
 
   /* Status palette — fixed across themes (validated on both surfaces) */
   --sev-high: #d03b3b;
@@ -70,7 +69,6 @@
   --blue-wash: rgba(6, 95, 212, 0.08);
   --on-blue: #ffffff;
   --red: #cc0000;
-  --logo-red: #cc0000;
 
   --thumb-bg: #e5e5e5;
   --track: #e5e5e5;
@@ -119,11 +117,7 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 .icon-btn:disabled:hover { background: none; color: var(--ink-2); }
 
 .logo { display: flex; align-items: center; gap: 6px; padding: 0 8px; }
-.logo__mark {
-  width: 30px; height: 22px; background: var(--logo-red); border-radius: 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.logo__mark .material-symbols-outlined { color: #fff; font-size: 16px; font-variation-settings: "FILL" 1; }
+.logo__mark { width: 28px; height: 28px; display: block; flex: none; }
 .logo__text { font-size: 20px; letter-spacing: -0.5px; color: var(--ink); }
 .logo__text b { font-weight: 700; }
 
