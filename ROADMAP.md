@@ -149,10 +149,33 @@ Current reading: audio 100 % precision / 100 % recall, but on only 4 events from
 single synthetic clip — correctly reported as not publishable. Vision is excluded
 until M2 lands.
 
-### M3b — Custom fine-tune · optional · gated on M3a
+### ~~M3b — Custom fine-tune~~ ✅ **first run done** (2026-08-03)
 
-Only if time remains after M3a and M5. Assemble and annotate a risk dataset, fine-tune
-YOLOv8, evaluate against the M5 benchmark, and swap the weights **only if it wins**.
+Promoted from optional and completed early: the weights research (`PLAN.md` §6a) found
+every community candidate paywalled, unlicensed, wrong-domain or unverifiable, so
+training our own turned out to be the *lower*-risk route.
+
+- [x] Open Images V7 subset, CC BY 4.0 — 1,516 train / 500 val images, 10 classes
+- [x] `download_dataset.py` (isolated env) · `prune_classes.py` · `train.py`
+- [x] Fine-tuned `yolov8n`, 12 epochs — **mAP@50 0.566**, weights in `models/`
+- [x] Verified end-to-end: rifle + shotgun detected on a held-out image, verdict
+      correctly flipped to Restricted
+- [ ] **Quality run on a GPU** — 12 epochs on CPU took 10.8 hours; 40+ epochs at
+      640 px is ~20 minutes on a free Colab T4
+- [ ] Resolve the `Wine` class before adding any more images
+
+Full numbers: [`training/RESULTS.md`](training/RESULTS.md).
+
+**The finding that matters:** more data did not mean better performance. `Wine` had the
+most training data (1,175 instances) and scored *worst* (mAP@50 0.250); `Handgun` had
+the least (84) and scored nearly double (0.487). `Wine` is semantically ambiguous in
+Open Images — applied to bottles, filled glasses and the liquid — and overlaps the
+separate `Wine glass` and `Cocktail` classes. **Fix ambiguous classes before adding
+images.**
+
+Coverage now includes firearms and blades alongside alcohol. `Graphic` remains
+uncovered, and **smoking is still uncovered by any reputable source found** — Open
+Images has no cigarette or tobacco class.
 
 ### M6 — Polish and viva preparation · ~2–3 days
 
