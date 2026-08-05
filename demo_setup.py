@@ -53,29 +53,29 @@ def ingest(path: Path, display_name: str) -> int:
 
 
 def main():
-    print("Resetting demo data …")
+    print("Resetting demo data...")
     reset()
 
-    print("Rendering sample footage …")
+    print("Rendering sample footage...")
     source = generate_demo_video()
 
     # Copy so the two library rows point at separate files.
     second = config.VIDEO_DIR / "studio_review_cut.mp4"
     shutil.copyfile(source, second)
 
-    print("Ingesting …")
+    print("Ingesting...")
     analysed = ingest(source, "brand_review_final.mp4")
     repo.get_video(analysed)
     live = ingest(second, "studio_review_cut.mp4")
 
-    print(f"Analysing video #{analysed} (pre-run, so the library isn't empty) …")
+    print(f"Analysing video #{analysed} (pre-run, so the library isn't empty)...")
     t0 = time.time()
     counts = process_video(analysed, demo=True)
-    print(f"   done in {time.time() - t0:.1f}s — "
+    print(f"   done in {time.time() - t0:.1f}s - "
           f"{counts['audio']} audio flags, {counts['visual']} visual risks, "
           f"{counts['ad_spots']} ad spots, verdict {compliance_verdict(analysed)}")
 
-    print(f"\nReady. Video #{live} ('studio_review_cut.mp4') is left UN-analysed —")
+    print(f"\nReady. Video #{live} ('studio_review_cut.mp4') is left UN-analysed:")
     print("run that one live in front of the panel to show the progress bar.\n")
 
 
