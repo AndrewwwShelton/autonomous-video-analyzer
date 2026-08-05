@@ -1,11 +1,19 @@
-# Backend (skeleton — M0)
+# Backend
 fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 imageio-ffmpeg>=0.5        # bundled ffmpeg binary (audio extraction + H.264 transcode)
 pandas>=2.0
-numpy>=1.26
+numpy>=2.0
 opencv-python>=4.9
+
+# pandas imports these two optional accelerators at import time. They are compiled
+# against the numpy ABI, so a build made for numpy 1.x prints a wall of red
+# tracebacks on every startup once numpy 2 is installed — alarming during a
+# demo, though pandas degrades gracefully and the app still runs. Pinned to
+# numpy-2-compatible builds so that cannot happen again.
+numexpr>=2.10
+Bottleneck>=1.4
 
 faster-whisper>=1.0        # M1 — local speech-to-text (D3)
 ultralytics>=8.2           # M2 — COCO YOLOv8 detection (D4)
