@@ -64,6 +64,29 @@ def test_every_fine_tuned_class_is_mapped():
     )
 
 
+def test_training_classes_are_unique():
+    """A duplicate would take a quota slot and corrupt the YOLO index mapping."""
+    from training.download_dataset import CLASSES
+    duplicates = {c for c in CLASSES if CLASSES.count(c) > 1}
+    assert not duplicates, f"duplicated training classes: {duplicates}"
+
+
+def test_uncovered_classes_are_never_requested_from_open_images():
+    """Open Images V7 has no cigarette, drug or blood class.
+
+    RISK_CATEGORY_MAP lists them so other weights would work, which makes it easy
+    to assume they can simply be added to the download list. They cannot: the
+    downloader would skip them silently and the taxonomy would claim coverage the
+    model does not have.
+    """
+    from training.download_dataset import CLASSES, UNCOVERED
+    requested = {c.lower() for c in CLASSES} & {u.lower() for u in UNCOVERED}
+    assert not requested, (
+        f"{sorted(requested)} cannot be sourced from Open Images V7. "
+        f"Covering them needs a different dataset, not a bigger download."
+    )
+
+
 # ------------------------------------------------------- detection -> flags
 
 def test_only_risk_detections_become_flags():

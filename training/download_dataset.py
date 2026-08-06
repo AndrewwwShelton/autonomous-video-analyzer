@@ -47,13 +47,30 @@ DATASET_DIR = ROOT / "datasets" / "risk"
 # Open Images class names, kept fine-grained. The application maps these to the
 # coarse DDD categories via RISK_CATEGORY_MAP, so "Handgun" stays more informative
 # in the interface than a flattened "Weapon" would be.
-WEAPON_CLASSES = ["Handgun", "Shotgun", "Rifle", "Knife", "Dagger", "Sword", "Axe"]
-SUBSTANCE_CLASSES = ["Beer", "Wine", "Cocktail", "Wine glass"]
+#
+# Run 2 revision (see training/RESULTS.md). Run 1 measured that class *definition*
+# mattered far more than class volume, so this set is chosen on that basis:
+#
+#   + Kitchen knife, Bow and arrow, Syringe -- visually distinctive classes that
+#     widen coverage without overlapping anything already here. Syringe is the only
+#     drug-paraphernalia class this source offers.
+#   + Axe -- listed in run 1 but only 2 instances survived the download, so
+#     prune_classes.py correctly dropped it. It needs its own quota to be learnable.
+#   - Wine -- REMOVED. It scored worst of all ten classes (mAP@50 0.250, recall
+#     0.250) because Open Images applies the label to bottles, to filled glasses and
+#     to the liquid itself, overlapping both `Wine glass` and `Cocktail`. The model
+#     cannot draw a boundary the labels do not contain. Alcohol stays covered by
+#     Beer, Cocktail and Wine glass.
+WEAPON_CLASSES = ["Handgun", "Shotgun", "Rifle", "Knife", "Kitchen knife",
+                  "Dagger", "Sword", "Axe", "Bow and arrow"]
+SUBSTANCE_CLASSES = ["Beer", "Cocktail", "Wine glass", "Syringe"]
 CLASSES = WEAPON_CLASSES + SUBSTANCE_CLASSES
 
-# Open Images has no cigarette or tobacco class, so smoking cannot be covered from
-# this source. Recorded here so the gap is visible at the point it matters.
-UNCOVERED = ["cigarette", "tobacco", "smoking", "drugs", "blood"]
+# Verified against the full 601-class Open Images V7 boxable vocabulary, not
+# assumed: there is no cigarette, tobacco, smoking, drug, pill, blood or gore
+# class. No amount of retraining covers those from this source -- they need a
+# different dataset. Recorded here so the gap stays visible at the point it matters.
+UNCOVERED = ["cigarette", "tobacco", "smoking", "drugs", "pills", "blood", "gore"]
 
 
 def main() -> int:

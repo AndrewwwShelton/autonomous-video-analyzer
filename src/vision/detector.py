@@ -35,6 +35,7 @@ RISK_CATEGORY_MAP = {
     "gun": "Weapon", "pistol": "Weapon", "rifle": "Weapon", "handgun": "Weapon",
     "shotgun": "Weapon", "firearm": "Weapon", "weapon": "Weapon",
     "dagger": "Weapon", "sword": "Weapon", "axe": "Weapon",
+    "kitchen knife": "Weapon", "bow and arrow": "Weapon",
     # Alcohol and other substances.
     "cigarette": "Substance", "smoking": "Substance", "vape": "Substance",
     "alcohol": "Substance", "beer": "Substance", "wine": "Substance",
@@ -42,6 +43,16 @@ RISK_CATEGORY_MAP = {
     "pills": "Substance", "drugs": "Substance",
     "blood": "Graphic", "corpse": "Graphic", "gore": "Graphic",
 }
+
+# This map is deliberately a SUPERSET of what any loaded model can emit. An entry
+# only becomes a detectable label once some model is trained on it, so roughly half
+# of these are inert -- forward-compatible synonyms kept so that swapping in
+# different weights does not silently drop a whole class. `coverage_report()` is
+# the honest view: it intersects this map with the vocabularies actually loaded.
+#
+# Never covered by the current data source: cigarette, smoking, vape, drugs, pills,
+# blood, gore, corpse. Open Images V7 has no such classes (verified against all 601
+# boxable names), so those entries cannot go live without a different dataset.
 
 # Classes COCO provides that are useful for ad-spot occupancy at M3a.
 SURFACE_CLASSES = {"tv", "laptop", "dining table", "desk", "couch", "chair", "bed"}

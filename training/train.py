@@ -85,6 +85,8 @@ def main() -> int:
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--device", default=None, help="cuda device index, or cpu")
+    ap.add_argument("--name", default="risk",
+                    help="run directory under training/runs/ (auto-increments if taken)")
     ap.add_argument("--check", action="store_true",
                     help="report dataset composition and exit")
     args = ap.parse_args()
@@ -124,19 +126,36 @@ def main() -> int:
         batch=args.batch,
         device=device,
         project=str(RUNS_DIR),
-        name="risk",
-        exist_ok=True,
+        name=args.name,
+        # exist_ok=False so ultralytics auto-increments to risk2, risk3, ... A
+        # reused directory would overwrite the PR curves, confusion matrix and
+        # per-epoch CSV that RESULTS.md cites as evidence for the previous run.
+        exist_ok=False,
         patience=10,          # stop early if validation stops improving
     )
 
-    best = RUNS_DIR / "risk" / "weights" / "best.pt"
+    # Read the directory back from the trainer rather than rebuilding the path:
+    # auto-increment means it is not necessarily the name we asked for.
+    run_dir = Path(model.trainer.save_dir)
+    best = run_dir / "weights" / "best.pt"
     if not best.exists():
         print(f"Training finished but {best} is missing.")
         return 1
 
     OUT_WEIGHTS.parent.mkdir(parents=True, exist_ok=True)
+    # Never destroy the currently-working model. A fresh run can be worse than the
+    # one it replaces -- more classes trained for fewer epochs usually is -- and
+    # discovering that with no way back, shortly before a demo, is not recoverable.
+    if OUT_WEIGHTS.exists():
+        previous = OUT_WEIGHTS.with_suffix(".prev.pt")
+        shutil.copy2(OUT_WEIGHTS, previous)
+        print(f"\nprevious weights kept as {previous.relative_to(ROOT)}")
+
     shutil.copy2(best, OUT_WEIGHTS)
-    print(f"\nbest weights -> {OUT_WEIGHTS.relative_to(ROOT)}")
+    print(f"run artifacts   -> {run_dir.relative_to(ROOT)}")
+    print(f"best weights    -> {OUT_WEIGHTS.relative_to(ROOT)}")
+    print("\nCompare against the previous run before trusting these weights:")
+    print(f"   {run_dir.relative_to(ROOT)}/results.csv  vs  training/RESULTS.md")
     print("\nTo use them, add the file to the vision_weights setting:")
     print('   Settings -> Weight files:  yolov8n.pt, risk_yolov8.pt')
     print("Then confirm the Visual detection coverage panel reports the new classes.")
