@@ -229,10 +229,33 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
   border: 2px solid currentColor;
 }
 .mon__icon .material-symbols-outlined { font-size: 16px; font-weight: 600; }
+/* Escalation, reusing the already-validated status palette rather than adding
+   unvalidated colours: green -> yellow -> red. "Review" is the middle state for
+   risks that context suggests may be rendered rather than real. */
 .mon--on { color: var(--good); }
-.mon--limited { color: var(--mon-yellow); }
+.mon--review { color: var(--mon-yellow); }
+.mon--restricted { color: var(--sev-high); }
 .mon--none { color: var(--ink-3); }
 .mon__label { color: var(--ink); }
+
+/* Verdict explanation. The reasoning is shown, not hidden behind a tooltip:
+   the binary rule this replaced gave no account of itself, and an unexplained
+   "Restricted" is exactly the creator complaint the project is built around. */
+.verdict-note {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 14px; margin-bottom: 16px;
+  border: 1px solid var(--border); border-left-width: 4px;
+  border-radius: 12px; background: var(--surface);
+}
+.verdict-note p { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.verdict-note b { font-size: 13px; }
+.verdict-note .material-symbols-outlined { font-size: 20px; }
+.verdict-note--monetizable { border-left-color: var(--good); }
+.verdict-note--monetizable .material-symbols-outlined { color: var(--good); }
+.verdict-note--review { border-left-color: var(--mon-yellow); }
+.verdict-note--review .material-symbols-outlined { color: var(--mon-yellow); }
+.verdict-note--restricted { border-left-color: var(--sev-high); }
+.verdict-note--restricted .material-symbols-outlined { color: var(--sev-high); }
 
 /* ================= Content table ================= */
 

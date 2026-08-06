@@ -50,25 +50,28 @@ export function SeverityBars({ rows }) {
   );
 }
 
-/** Two-segment stacked bar for the Monetizable / Restricted split. */
-export function VerdictSplit({ monetizable, restricted }) {
-  const total = monetizable + restricted;
+/** Stacked bar for the Monetizable / Review / Restricted split. */
+export function VerdictSplit({ monetizable, review = 0, restricted }) {
+  const segments = [
+    { n: monetizable, label: "Monetizable", color: "var(--good)" },
+    { n: review, label: "Review", color: "var(--mon-yellow)" },
+    { n: restricted, label: "Restricted", color: "var(--sev-high)" },
+  ];
+  const total = segments.reduce((sum, s) => sum + s.n, 0);
   if (!total) return <p className="chart-empty">Nothing analysed yet</p>;
-  const pct = (n) => (n / total) * 100;
   return (
     <div className="verdict">
       <div className="verdict__bar" role="img"
-           aria-label={`${monetizable} monetizable, ${restricted} restricted`}>
-        {monetizable > 0 && (
-          <span className="verdict__seg" style={{ width: `${pct(monetizable)}%`, background: "var(--good)" }} />
-        )}
-        {restricted > 0 && (
-          <span className="verdict__seg" style={{ width: `${pct(restricted)}%`, background: "var(--mon-yellow)" }} />
-        )}
+           aria-label={segments.map((s) => `${s.n} ${s.label.toLowerCase()}`).join(", ")}>
+        {segments.filter((s) => s.n > 0).map((s) => (
+          <span key={s.label} className="verdict__seg"
+                style={{ width: `${(s.n / total) * 100}%`, background: s.color }} />
+        ))}
       </div>
       <div className="verdict__legend">
-        <span><i style={{ background: "var(--good)" }} />Monetizable <b>{monetizable}</b></span>
-        <span><i style={{ background: "var(--mon-yellow)" }} />Restricted <b>{restricted}</b></span>
+        {segments.map((s) => (
+          <span key={s.label}><i style={{ background: s.color }} />{s.label} <b>{s.n}</b></span>
+        ))}
       </div>
     </div>
   );

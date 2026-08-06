@@ -56,7 +56,7 @@ export default function VideoDetailPage({ toast }) {
           <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
         </button>
         <h1>{video.filename}</h1>
-        <MonetizationBadge verdict={flags.verdict} />
+        <MonetizationBadge verdict={flags.verdict} reason={flags.assessment?.reason} />
         <button className="btn btn--outline" onClick={() => exportReport("PDF")}>
           <span className="material-symbols-outlined" style={{ fontSize: 20 }} aria-hidden="true">download</span>
           Export PDF
@@ -74,6 +74,20 @@ export default function VideoDetailPage({ toast }) {
       ) : (
         <div className="detail-grid">
           <div>
+            {flags.assessment?.reason && (
+              <div className={`verdict-note verdict-note--${flags.verdict?.toLowerCase()}`}
+                   role="note">
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {flags.verdict === "Monetizable" ? "check_circle"
+                    : flags.verdict === "Review" ? "help" : "gpp_maybe"}
+                </span>
+                <div>
+                  <b>{flags.verdict}</b>
+                  <p>{flags.assessment.reason}</p>
+                </div>
+              </div>
+            )}
+
             <div className="stats">
               <div className="card stat">
                 <div className="stat__value">{flags.audio.length}</div>

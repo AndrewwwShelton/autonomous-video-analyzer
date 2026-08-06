@@ -1,12 +1,21 @@
 // Monetization badge — YT Studio's $ icon language:
-// green $ = Monetizable, yellow $ = Restricted (limited ads), gray = not analyzed.
-export function MonetizationBadge({ verdict, compact = false }) {
-  const mode =
-    verdict === "Monetizable" ? "on" : verdict === "Restricted" ? "limited" : "none";
-  const label =
-    verdict === "Monetizable" ? "On" : verdict === "Restricted" ? "Limited" : "—";
+//   green  $  Monetizable  — nothing blocking found
+//   yellow $  Review       — risks found, but context suggests they may be rendered
+//   red    $  Restricted   — treated as real
+//   gray   $  not analyzed
+// "Review" exists because a binary verdict was the flaw this tool set out to fix:
+// restricting a video for a weapon drawn inside a game is the same context-blind
+// call the project criticises. See src/pipeline/orchestrator.assess_compliance.
+const MONETIZATION = {
+  Monetizable: { mode: "on", label: "On" },
+  Review: { mode: "review", label: "Review" },
+  Restricted: { mode: "restricted", label: "Limited" },
+};
+
+export function MonetizationBadge({ verdict, compact = false, reason }) {
+  const { mode, label } = MONETIZATION[verdict] ?? { mode: "none", label: "—" };
   return (
-    <span className={`mon mon--${mode}`} title={verdict ?? "Not analyzed yet"}>
+    <span className={`mon mon--${mode}`} title={reason ?? verdict ?? "Not analyzed yet"}>
       <span className="mon__icon">
         <span className="material-symbols-outlined">attach_money</span>
       </span>

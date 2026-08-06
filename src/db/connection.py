@@ -72,10 +72,26 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+# Columns added after the first release. CREATE TABLE IF NOT EXISTS silently does
+# nothing when the table already exists, so a new column never reaches a database
+# created by an earlier version -- the app would then fail on every read of it.
+_MIGRATIONS = [
+    ("VideoMetadata", "overlay_context", "TEXT"),
+]
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    for table, column, decl in _MIGRATIONS:
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def init_db(db_path: Path | None = None) -> None:
     """Create all tables and seed default config. Idempotent — safe on every app start."""
     with get_connection(db_path) as conn:
         conn.executescript(_SCHEMA_PATH.read_text(encoding="utf-8"))
+        _apply_migrations(conn)
         conn.executemany(
             "INSERT OR IGNORE INTO SystemConfig (config_key, config_value, config_type, description) "
             "VALUES (?, ?, ?, ?)",

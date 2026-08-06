@@ -137,3 +137,29 @@ def test_many_findings_paginate(tmp_path):
     out = tmp_path / "long.pdf"
     build_pdf(sample(audio=audio), out)
     assert fitz.open(out).page_count > 1
+
+
+# ------------------------------------------------- three-state verdict (M6)
+
+@pytest.mark.parametrize("verdict", ["Monetizable", "Review", "Restricted"])
+def test_every_verdict_state_renders(tmp_path, verdict):
+    """'Review' was added after the first release; an unhandled state previously
+    fell through to the Restricted styling and mislabelled the report."""
+    out = tmp_path / f"{verdict}.pdf"
+    build_pdf(sample(verdict=verdict), out)
+    assert out.exists() and out.stat().st_size > 1000
+
+
+def test_verdict_reason_is_printed_in_the_report(tmp_path):
+    """A PDF is read away from the interface, so it must carry its own reasoning."""
+    pypdf = pytest.importorskip("pypdf")
+
+    data = sample(verdict="Review")
+    data["compliance_reason"] = "UNIQUEMARKERPHRASE weapons appear to be rendered"
+    out = tmp_path / "review.pdf"
+    build_pdf(data, out)
+
+    text = "".join(page.extract_text() or ""
+                   for page in pypdf.PdfReader(str(out)).pages)
+    assert "UNIQUEMARKERPHRASE" in text
+    assert "Review" in text

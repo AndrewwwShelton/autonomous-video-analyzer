@@ -23,6 +23,7 @@ from src.db import repository as repo
 from src.vision.adspots import DemoAdSpotFinder, find_ad_spot_candidates
 from src.vision.detector import (DemoDetector, DetectorError, YoloDetector,
                                  to_risk_flags)
+from src.vision.overlay import DemoOverlayFinder, OverlayAccumulator
 from src.vision.sampler import sample_frames
 from src.vision.tracker import merge_candidates
 
@@ -91,7 +92,9 @@ def _run_vision_stage(video: dict, demo: bool,
                                 video["resolution_height"] or 720)
         flags = [f for f in flags if f["confidence_score"] >= threshold]
         repo.insert_visual_flags(video_id, flags)
-        return flags, detector.name, []
+        demo_overlay = DemoOverlayFinder(seed=video_id)
+        repo.set_overlay_context(video_id, demo_overlay.report().as_dict())
+        return flags, f"{detector.name} + {demo_overlay.name}", []
 
     sample_fps = repo.get_config("frame_sample_fps") or 1.0
     weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
@@ -100,18 +103,24 @@ def _run_vision_stage(video: dict, demo: bool,
     flags: list = []
     frames_candidates: list[tuple[float, list[dict]]] = []
     expected = max(1, int(duration * sample_fps))
+    # Third consumer of the same decoded frame (D4). Overlay detection needs the
+    # whole sequence, not one image, but it accumulates in constant memory so it
+    # costs a running sum per frame rather than a second pass over the file.
+    overlay = OverlayAccumulator()
 
     for i, (timestamp, frame) in enumerate(sample_frames(Path(video["filepath"]),
                                                          sample_fps)):
         detections = detector.detect_frame(frame, timestamp)
         flags += to_risk_flags(detections)
         frames_candidates.append((timestamp, find_ad_spot_candidates(frame, detections)))
+        overlay.add(frame)
         if i % 5 == 0:
             # Vision dominates runtime, so it owns the 0.40-0.75 progress band.
             report(f"Scanning frames ({i + 1}/{expected})",
                    0.40 + 0.35 * min(1.0, (i + 1) / expected))
 
     repo.insert_visual_flags(video_id, flags)
+    repo.set_overlay_context(video_id, overlay.report().as_dict())
     return flags, detector.name, frames_candidates
 
 
@@ -179,9 +188,75 @@ def process_video(video_id: int, demo: bool = True,
         raise
 
 
+# An overlay downgrades a weapon finding only when the evidence looks like an
+# interface rather than a badge. A single region is a channel watermark and says
+# nothing about whether the footage is rendered; several regions covering part of
+# the frame is a heads-up display. See src/vision/overlay.py.
+MIN_OVERLAY_CONFIDENCE = 0.5
+MIN_OVERLAY_REGIONS = 2
+
+
+def _looks_like_rendered_gameplay(overlay: dict | None) -> bool:
+    if not overlay or overlay.get("verdict") != "overlay":
+        return False
+    return (overlay.get("confidence", 0.0) >= MIN_OVERLAY_CONFIDENCE
+            and overlay.get("region_count", 0) >= MIN_OVERLAY_REGIONS)
+
+
+def assess_compliance(video_id: int) -> dict:
+    """Compliance status with the reasoning that produced it.
+
+    The original rule was a bare `any()`: one Weapon detection in one frame
+    restricted the whole video. On a ten-minute video that is 0.17% of the
+    runtime deciding the outcome, and it restricted gameplay footage for weapons
+    that were rendered rather than real — exactly the context-blind over-flagging
+    this project set out to criticise.
+
+    Two changes fix it. Weapon findings are now weighed against persistent-overlay
+    evidence, and the outcome has a third state. Binary was the original flaw:
+    'Monetizable' over-claims when weapons are genuinely present, and 'Restricted'
+    over-punishes when they are drawn. 'Review' says what is actually true — a
+    human should look.
+
+    Nothing is ever suppressed. Every flag remains recorded and visible; only the
+    verdict weighs context, and it always explains itself.
+    """
+    audio_flags = repo.get_audio_flags(video_id)
+    visual_flags = repo.get_visual_flags(video_id)
+    overlay = repo.get_overlay_context(video_id)
+
+    audio_high = [f for f in audio_flags if f["severity"] == "High"]
+    weapons = [f for f in visual_flags if f["risk_category"] == "Weapon"]
+
+    def result(verdict: str, reason: str) -> dict:
+        return {"verdict": verdict, "reason": reason,
+                "high_severity_audio": len(audio_high), "weapon_flags": len(weapons),
+                "overlay": overlay}
+
+    # Spoken words are judged on their own terms. What is drawn over the picture
+    # says nothing about what was said, so an overlay never excuses audio.
+    if audio_high:
+        words = ", ".join(sorted({f["word_flagged"] for f in audio_high})[:3])
+        return result("Restricted",
+                      f"{len(audio_high)} high-severity spoken term(s) ({words}). "
+                      f"Spoken content is judged independently of any overlay.")
+
+    if not weapons:
+        return result("Monetizable",
+                      "No high-severity spoken terms and no weapon detections.")
+
+    if _looks_like_rendered_gameplay(overlay):
+        return result("Review",
+                      f"{len(weapons)} weapon detection(s), but {overlay['reason']} "
+                      f"Weapons rendered inside a game are not the same as real "
+                      f"ones, and this tool cannot tell them apart with certainty — "
+                      f"a human should confirm before any action is taken.")
+
+    return result("Restricted",
+                  f"{len(weapons)} weapon detection(s) with no evidence of a game "
+                  f"interface, so the footage is treated as real.")
+
+
 def compliance_verdict(video_id: int) -> str:
-    """DDD compliance_status: 'Restricted' if any High-severity audio flag or any
-    Weapon-category visual flag exists; otherwise 'Monetizable'."""
-    audio_high = any(f["severity"] == "High" for f in repo.get_audio_flags(video_id))
-    visual_weapon = any(f["risk_category"] == "Weapon" for f in repo.get_visual_flags(video_id))
-    return "Restricted" if (audio_high or visual_weapon) else "Monetizable"
+    """'Monetizable' | 'Review' | 'Restricted'. See assess_compliance for why."""
+    return assess_compliance(video_id)["verdict"]

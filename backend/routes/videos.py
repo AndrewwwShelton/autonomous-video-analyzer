@@ -8,7 +8,8 @@ from backend import progress
 from src import config
 from src.db import repository as repo
 from src.demo_media import generate_demo_video
-from src.pipeline.orchestrator import compliance_verdict, process_video
+from src.pipeline.orchestrator import (assess_compliance, compliance_verdict,
+                                       process_video)
 from src.vision.sampler import probe_video, save_thumbnail
 
 router = APIRouter(tags=["videos"])
@@ -134,9 +135,14 @@ def flags(video_id: int) -> dict:
     v = repo.get_video(video_id)
     if v is None:
         raise HTTPException(404, "video not found")
+    done = v["processed_status"] == "completed"
+    # The full assessment, not just the label: a verdict the interface cannot
+    # explain is no more accountable than the binary rule it replaced.
+    assessment = assess_compliance(video_id) if done else None
     return {
         "audio": repo.get_audio_flags(video_id),
         "visual": repo.get_visual_flags(video_id),
         "ad_spots": repo.get_ad_spots(video_id),
-        "verdict": compliance_verdict(video_id) if v["processed_status"] == "completed" else None,
+        "verdict": assessment["verdict"] if assessment else None,
+        "assessment": assessment,
     }

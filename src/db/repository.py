@@ -45,6 +45,28 @@ def update_video_status(video_id: int, status: str, db_path: Path | None = None)
         )
 
 
+def set_overlay_context(video_id: int, report: dict | None,
+                        db_path: Path | None = None) -> None:
+    """Store persistent-overlay evidence for one video (src/vision/overlay.py)."""
+    with get_connection(db_path) as conn:
+        conn.execute(
+            "UPDATE VideoMetadata SET overlay_context = ? WHERE video_id = ?",
+            (json.dumps(report) if report is not None else None, video_id),
+        )
+
+
+def get_overlay_context(video_id: int, db_path: Path | None = None) -> dict | None:
+    """None when the video predates overlay analysis or was run in demo mode."""
+    video = get_video(video_id, db_path)
+    raw = (video or {}).get("overlay_context")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def delete_video(video_id: int, db_path: Path | None = None) -> None:
     """Cascades to all child flag/spot/report rows via FK ON DELETE CASCADE."""
     with get_connection(db_path) as conn:
@@ -118,6 +140,11 @@ def clear_analysis(video_id: int, db_path: Path | None = None) -> None:
         conn.execute("DELETE FROM AudioFlags WHERE video_id = ?", (video_id,))
         conn.execute("DELETE FROM VisualFlags WHERE video_id = ?", (video_id,))
         conn.execute("DELETE FROM AdSpots WHERE video_id = ?", (video_id,))
+        # Overlay evidence belongs to the run that produced it. Leaving it behind
+        # would let a stale "this is gameplay" finding soften the verdict on a
+        # re-analysis that never established it.
+        conn.execute("UPDATE VideoMetadata SET overlay_context = NULL "
+                     "WHERE video_id = ?", (video_id,))
 
 # ---------------------------------------------------------------- Reports
 
@@ -180,16 +207,29 @@ def set_config(key: str, value, config_type: str = "string", description: str | 
 
 # ---------------------------------------------------------------- Aggregates
 
-# A video is Restricted if it has any High-severity audio flag or any Weapon-category
-# visual flag — the same rule as orchestrator.compliance_verdict(), expressed in SQL so
-# the whole library can be summarised in one pass.
+# The same rule as orchestrator.assess_compliance(), expressed in SQL so the whole
+# library can be summarised in one pass instead of one query per video.
+#
+# This is a deliberate second copy of the compliance rule, and the two drifting
+# apart would make the dashboard disagree with the video pages. Order matters and
+# mirrors the Python exactly: spoken terms first (an overlay never excuses audio),
+# then the absence of weapons, then the overlay context.
+# tests/test_compliance_verdict.py asserts the two implementations agree.
 _VERDICT_SQL = """
     SELECT v.video_id,
-           CASE WHEN EXISTS (SELECT 1 FROM AudioFlags a
-                             WHERE a.video_id = v.video_id AND a.severity = 'High')
-                  OR EXISTS (SELECT 1 FROM VisualFlags f
-                             WHERE f.video_id = v.video_id AND f.risk_category = 'Weapon')
-                THEN 'Restricted' ELSE 'Monetizable' END AS verdict
+           CASE
+             WHEN EXISTS (SELECT 1 FROM AudioFlags a
+                          WHERE a.video_id = v.video_id AND a.severity = 'High')
+               THEN 'Restricted'
+             WHEN NOT EXISTS (SELECT 1 FROM VisualFlags f
+                              WHERE f.video_id = v.video_id AND f.risk_category = 'Weapon')
+               THEN 'Monetizable'
+             WHEN json_extract(v.overlay_context, '$.verdict') = 'overlay'
+              AND COALESCE(json_extract(v.overlay_context, '$.confidence'), 0) >= 0.5
+              AND COALESCE(json_extract(v.overlay_context, '$.region_count'), 0) >= 2
+               THEN 'Review'
+             ELSE 'Restricted'
+           END AS verdict
     FROM VideoMetadata v
     WHERE v.processed_status = 'completed'
 """
@@ -221,6 +261,7 @@ def get_library_stats(db_path: Path | None = None) -> dict:
             "totals": totals,
             "status_counts": status_counts,
             "verdicts": {"Monetizable": verdicts.get("Monetizable", 0),
+                         "Review": verdicts.get("Review", 0),
                          "Restricted": verdicts.get("Restricted", 0)},
             "severity_breakdown": rows(
                 "SELECT severity AS label, COUNT(*) AS value FROM AudioFlags "

@@ -12,19 +12,24 @@ import pandas as pd
 
 from src import config
 from src.db import repository as repo
-from src.pipeline.orchestrator import compliance_verdict
+from src.pipeline.orchestrator import assess_compliance
 
 
 def _gather(video_id: int) -> dict:
     video = repo.get_video(video_id)
     if video is None:
         raise ValueError(f"No video with id {video_id}")
+    assessment = assess_compliance(video_id)
     return {
         "video": video,
         "audio_flags": repo.get_audio_flags(video_id),
         "visual_flags": repo.get_visual_flags(video_id),
         "ad_spots": repo.get_ad_spots(video_id),
-        "compliance_status": compliance_verdict(video_id),
+        "compliance_status": assessment["verdict"],
+        # Exported alongside the verdict so a report read away from the
+        # application still says why it reached the conclusion it did.
+        "compliance_reason": assessment["reason"],
+        "overlay_context": assessment["overlay"],
     }
 
 

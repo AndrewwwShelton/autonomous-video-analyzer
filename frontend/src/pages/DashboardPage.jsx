@@ -23,7 +23,7 @@ export default function DashboardPage({ toast }) {
 
   const { totals, verdicts, recent_videos: recent } = stats;
   const flags = totals.audio_flags + totals.visual_flags;
-  const analysed = verdicts.Monetizable + verdicts.Restricted;
+  const analysed = verdicts.Monetizable + (verdicts.Review || 0) + verdicts.Restricted;
 
   if (totals.videos === 0) {
     return (
@@ -63,7 +63,8 @@ export default function DashboardPage({ toast }) {
           <p className="muted-note">
             How your analysed videos would fare against advertiser-friendly guidelines.
           </p>
-          <VerdictSplit monetizable={verdicts.Monetizable} restricted={verdicts.Restricted} />
+          <VerdictSplit monetizable={verdicts.Monetizable} review={verdicts.Review}
+                        restricted={verdicts.Restricted} />
           <Link className="btn btn--text" to="/analytics" style={{ marginTop: 12 }}>
             <span className="material-symbols-outlined" aria-hidden="true">bar_chart</span>
             See full analytics

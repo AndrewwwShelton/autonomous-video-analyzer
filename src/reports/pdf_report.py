@@ -32,6 +32,7 @@ SEVERITY = {
 }
 GOOD = colors.HexColor("#0ca30c")
 LIMITED = colors.HexColor("#f5a623")
+RESTRICTED = colors.HexColor("#d03b3b")
 INK = colors.HexColor("#1a1a1a")
 INK_2 = colors.HexColor("#5a5a5a")
 RULE = colors.HexColor("#d8d8d8")
@@ -144,13 +145,22 @@ def _table(header, rows, widths, styles, zebra=True):
     return t
 
 
-def _verdict_block(verdict: str, styles, width):
-    monetizable = verdict == "Monetizable"
-    colour = GOOD if monetizable else LIMITED
-    label = ("Monetizable — no blocking issues found" if monetizable
-             else "Restricted — review before publishing")
-    para = Paragraph(f'<font color="{colour.hexval()}"><b>{label}</b></font>',
-                     styles["verdict"])
+_VERDICTS = {
+    "Monetizable": (GOOD, "Monetizable — no blocking issues found"),
+    "Review": (LIMITED, "Review — risks found, but context suggests they may not be real"),
+    "Restricted": (RESTRICTED, "Restricted — review before publishing"),
+}
+
+
+def _verdict_block(verdict: str, styles, width, reason: str | None = None):
+    colour, label = _VERDICTS.get(verdict, (LIMITED, f"{verdict} — review before publishing"))
+    text = f'<font color="{colour.hexval()}"><b>{label}</b></font>'
+    if reason:
+        # The reasoning travels with the document. A PDF handed to an advertiser
+        # or a supervisor is read away from the interface, so a verdict that
+        # cannot account for itself there is not much use.
+        text += f'<br/><font size="8" color="#444444">{reason}</font>'
+    para = Paragraph(text, styles["verdict"])
     t = Table([[para]], colWidths=[width])
     t.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 1.1, colour),
@@ -211,7 +221,8 @@ def build_pdf(data: dict, out_path) -> None:
         f"&nbsp;·&nbsp; generated {datetime.now().strftime('%d %b %Y, %H:%M')}",
         styles["sub"]))
     story.append(Spacer(1, 9))
-    story.append(_verdict_block(data["compliance_status"], styles, width))
+    story.append(_verdict_block(data["compliance_status"], styles, width,
+                            data.get("compliance_reason")))
     story.append(Spacer(1, 11))
 
     inventory = sum(s["timestamp_end"] - s["timestamp_start"] for s in spots)

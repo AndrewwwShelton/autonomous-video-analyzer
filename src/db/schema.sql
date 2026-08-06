@@ -12,7 +12,12 @@ CREATE TABLE IF NOT EXISTS VideoMetadata (
     resolution_height   INTEGER,
     upload_timestamp    TEXT DEFAULT CURRENT_TIMESTAMP,
     processed_status    TEXT DEFAULT 'pending'
-                        CHECK (processed_status IN ('pending','processing','completed','failed'))
+                        CHECK (processed_status IN ('pending','processing','completed','failed')),
+    -- Persistent-overlay evidence as JSON (src/vision/overlay.py). Extends the
+    -- DDD schema: a weapon detection alone cannot distinguish gameplay from real
+    -- footage, and the verdict needs that context to avoid restricting a video
+    -- for an object rendered inside a game.
+    overlay_context     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS AudioFlags (

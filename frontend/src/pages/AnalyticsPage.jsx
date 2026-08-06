@@ -45,7 +45,8 @@ export default function AnalyticsPage({ toast }) {
       <div className="dash-grid">
         <section className="card form-card">
           <h3>Monetization outcome</h3>
-          <VerdictSplit monetizable={verdicts.Monetizable} restricted={verdicts.Restricted} />
+          <VerdictSplit monetizable={verdicts.Monetizable} review={verdicts.Review}
+                        restricted={verdicts.Restricted} />
         </section>
 
         <section className="card form-card">
