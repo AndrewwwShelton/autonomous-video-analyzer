@@ -5,7 +5,7 @@
 > For the original design-to-build reasoning and decision log see [`PLAN.md`](PLAN.md);
 > for what remains see [`ROADMAP.md`](ROADMAP.md).
 >
-> Last updated: **2026-08-03** · Status: **every AI engine is real; evidence outstanding**
+> Last updated: **2026-08-06** · Status: **every AI engine is real; evidence outstanding**
 
 **One-line state:** the tool works end to end — what it lacks is proof. The SRS claims
 ">85% precision" and the benchmark that would substantiate it has zero labelled clips.
@@ -38,9 +38,9 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 
 | | |
 |---|---|
-| Python (src + backend) | ~2,720 lines |
-| Frontend (jsx/js/css) | ~2,240 lines |
-| Tests | **95 passing** across 8 files |
+| Python (src + backend) | ~3,320 lines |
+| Frontend (jsx/js/css) | ~2,290 lines |
+| Tests | **138 passing** across 11 files |
 | Screens | 7, responsive over 4 breakpoints, light + dark |
 | REST endpoints | 15 |
 | Stage deliverables | Synopsis · SRS · DDD · UID — all submitted |
@@ -63,10 +63,17 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 | **M3a Ad-spots ★** | The **free-space algorithm** — the project's novel contribution |
 | **M5 Reports** | Formatted **PDF** compliance report with drawn timeline |
 | **Branding** | Original logo replacing a YouTube-derived mark |
+| **M6 Overlay context ★** | **Persistent-overlay detection** + a three-state verdict, so rendered weapons stop restricting gameplay footage |
 
 Milestones were deliberately not built in numeric order. M4 came early because the UID
 document needed a real interface to photograph; M3b was promoted from "optional" once
 research showed community weights were unusable.
+
+**M6 was not planned at all.** It came from a question with no good answer: *if a video
+is Call of Duty, and the guns are in the game, does the tool flag it?* It did — one
+weapon detection in one frame of a ten-minute video was enough. That is the same
+context-blind over-flagging `Project_Justification.docx` criticises YouTube for, which
+made it worth stopping to fix rather than noting as future work.
 
 ---
 
@@ -103,7 +110,8 @@ runs **sequentially** (decision D2), never in parallel.
               ┌──────────────▼──┐   ┌────▼──────────────────┐
               │ Audio (Module 1)│   │ Vision (Module 2)     │
               │ extract → tran- │   │ sample → detect ──┬──►│ risk flags
-              │ scribe → match  │   │                   └──►│ ad-spots → track
+              │ scribe → match  │   │              │    ├──►│ ad-spots → track
+              │                 │   │              └────┴──►│ overlay context
               └────────┬────────┘   └────────┬──────────────┘
                        └──────────┬──────────┘
                           ┌───────▼────────┐
@@ -118,8 +126,10 @@ runs **sequentially** (decision D2), never in parallel.
 | 3 | Orchestrator + DB + API | `src/pipeline/`, `src/db/`, `backend/` |
 | 4 | Web UI | `frontend/` |
 
-**One inference pass, two consumers** (decision D4): the same frame detections feed both
-risk flags and the ad-spot occupancy mask, so frames decode and models run once.
+**One inference pass, three consumers** (decision D4): the same decoded frame feeds risk
+flags, the ad-spot occupancy mask, and the overlay accumulator — so frames decode and
+models run once. Overlay detection needs the whole sequence rather than one image, but
+accumulates in constant memory, so it rides the existing pass instead of adding one.
 
 ---
 
@@ -142,6 +152,8 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 | **M3a** Ad-spot free-space algorithm ★ | ✅ real (tested) |
 | **M3b** Fine-tuned risk model (Open Images, mAP@50 0.566) | ✅ real |
 | **M5** CSV / JSON / PDF export + `AuditReports` archive | ✅ real (tested) |
+| **M6** Persistent-overlay detection ★ | ✅ real (tested) |
+| **M6** Three-state verdict with printed reasoning | ✅ real (tested) |
 | REST API — 15 endpoints, range-served media | ✅ real |
 | React UI — 7 screens, 4 breakpoints, light+dark, a11y | ✅ real |
 | Benchmark harness + labelling tooling | ✅ real (tested) |
@@ -149,7 +161,8 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 
 ### Honesty guards (deliberate — do not remove)
 
-Three places where the system refuses to let demo or thin evidence pass as real:
+Five places where the system refuses to let demo, thin, or unexplained evidence pass
+as real:
 
 1. **Run summary** names the engine behind each stage (`faster-whisper-base.en`,
    `demo-detector`, …).
@@ -157,13 +170,21 @@ Three places where the system refuses to let demo or thin evidence pass as real:
    stand-ins — a report gets forwarded to people who weren't there when it was made.
 3. **Benchmark** excludes stubbed stages from the headline figure, and prints
    `NOT YET PUBLISHABLE` below 30 events / 10 real clips.
+4. **Overlay detection returns `inconclusive`** rather than guessing when the scene is
+   too static to judge, and "cannot tell" is never read downstream as "it is a game".
+   Demo overlay output carries a literal `DEMO OUTPUT —` prefix in its reason.
+5. **Every verdict states its reasoning**, on screen and in the PDF. An unexplained
+   "Restricted" is precisely the creator complaint this project is built around, so the
+   tool is not permitted to issue one.
 
 ---
 
-## 7. The novel contribution — ad-spot free-space detection
+## 7. The novel contributions
 
-Everything else in the project is competent integration of existing models. This is the
-part that is genuinely original, and the part a viva will push hardest on.
+Everything else in the project is competent integration of existing models. These two
+parts are genuinely original, and are where a viva will push hardest.
+
+### 7a. Ad-spot free-space detection
 
 **The insight:** finding an advertisement surface is *not* an object-detection problem.
 A blank wall is the **absence** of objects, and no detector can be trained to find
@@ -187,12 +208,56 @@ Runs at ~320 px working width: the DP is linear in pixel count, so ~30× cheaper
 practical loss. The **temporal tracker** then requires ≥5 s persistence before a surface
 becomes a Premium Ad Spot.
 
+### 7b. Persistent-overlay detection (M6)
+
+**The problem:** a rifle in Call of Duty and a rifle on a table produce the same
+detection. Before this, one weapon flag in one frame restricted the entire video —
+0.17% of a ten-minute runtime deciding the outcome. Measured: *300 frames of alcohol
+passed; one frame with a rifle did not.*
+
+**The insight:** the distinguishing signal is not the weapon, it is the **interface
+drawn on top of it**. Gameplay carries a HUD — crosshair, health bar, minimap, ammo
+counter — which occupies fixed pixels while the world behind it moves. Nothing in
+filmed footage does that.
+
+Two measurements, in `src/vision/overlay.py`:
+
+1. **Per-pixel temporal variance** — overlay pixels barely change. Accumulated
+   streaming (running sum and sum-of-squares), so memory is independent of video
+   length: a 1-hour video costs the same ~1 MB as a 30-second one.
+2. **Edges surviving in the temporal mean** — the discriminating step. A static overlay
+   stays *sharp* under averaging because it lands on the same pixels every frame;
+   moving content blurs away. A crisp edge at a pixel that barely varies is drawn, not
+   filmed.
+
+Neither alone suffices, and each prevents a specific failure: variance alone flags
+letterbox bars and tripod shots; edges alone flag every still object in a static scene.
+
+It is the **third consumer of the same decoded frame** (decision D4), so it adds a
+running sum per frame rather than a second pass over the file.
+
+**Naming is deliberate: it detects overlays, not games.** A channel watermark, a news
+lower-third and a donation bar all trigger it. Gameplay is an *inference* the evidence
+supports — which is why the report carries region count and coverage rather than a
+boolean, and why a lone small region is described as a watermark rather than an
+interface.
+
+**The verdict gained a third state.** Binary was the original flaw: `Monetizable`
+over-claims when weapons are genuinely present, `Restricted` over-punishes when they
+are drawn, and **`Review`** says what is actually true — a human should look. Nothing is
+ever suppressed: every flag stays recorded and visible, and only the verdict weighs
+context. The exemption is narrow by design, each limit pinned by a test:
+
+- spoken terms are **never** excused (an overlay says nothing about what was said);
+- a **single** region is a watermark, not evidence of rendered content;
+- `inconclusive` never reads as "it is a game".
+
 ---
 
 ## 8. Data model (6 tables, 3NF — per DDD)
 
 - **VideoMetadata** (parent) — filename, path, size, duration, fps, resolution, status
-  (`pending`/`processing`/`completed`/`failed`)
+  (`pending`/`processing`/`completed`/`failed`), **overlay_context** (JSON)
 - **AudioFlags** — timestamps, word_flagged, transcript_context, severity, detection_model
 - **VisualFlags** — frame_timestamp, object_detected, bounding_box_json, confidence,
   risk_category (Weapon/Substance/Graphic)
@@ -205,9 +270,25 @@ becomes a Premium Ad Spot.
 
 Children cascade on delete. Boxes stored as JSON `[x1, y1, x2, y2]`.
 
-**Compliance verdict:** `Restricted` if any High-severity audio flag **or** any
-Weapon-category visual flag exists, else `Monetizable` — drives the green/amber `$`
-badge in the UI and the PDF verdict banner.
+`overlay_context` is the one **extension to the DDD schema** (M6). It is added by a
+migration in `connection.py`, not just to `schema.sql`: `CREATE TABLE IF NOT EXISTS`
+silently does nothing when the table already exists, so a new column would never reach
+a database made by an earlier build.
+
+**Compliance verdict** (`orchestrator.assess_compliance`), in order:
+
+1. any **High-severity audio** flag → `Restricted` — speech is judged on its own terms,
+   and an overlay never excuses it;
+2. else no **Weapon** visual flag → `Monetizable`;
+3. else **overlay evidence** looks like an interface (confidence ≥ 0.5 **and** ≥ 2
+   regions) → `Review`;
+4. else → `Restricted`.
+
+Drives the green/amber/red `$` badge, the verdict banner in the PDF, and the split on
+the Dashboard. The rule exists **twice** — in Python per video, and as SQL in
+`repository._VERDICT_SQL` so the library summarises in one pass.
+`tests/test_compliance_verdict.py` asserts the two agree; a drift would make the
+dashboard silently disagree with the video pages.
 
 ---
 
@@ -239,7 +320,7 @@ characteristics are *personas*, not authenticated roles. Documented in the UID.
 | POST | `/videos` · `/videos/demo` | multipart upload / generate synthetic clip |
 | DELETE | `/videos/{id}` | delete (cascades) |
 | POST | `/videos/{id}/analyze` | run pipeline in background; `?mode=demo\|real` |
-| GET | `/videos/{id}/status` · `/flags` | live progress / findings + verdict |
+| GET | `/videos/{id}/status` · `/flags` | live progress / findings + verdict + full assessment |
 | GET | `/stats` | library-wide aggregates (Dashboard + Analytics) |
 | GET | `/vision-coverage` | what the loaded weights can actually detect |
 | GET/PUT | `/config` | read/update SystemConfig |
@@ -257,7 +338,7 @@ specproj/
 ├── context.md · PLAN.md · ROADMAP.md · README.md
 ├── requirements.txt · demo_setup.py · RUN_DEMO.bat
 ├── Synopsis.pdf · SRS (1).pdf · DDD_Final.pdf · UID_Final.pdf   stages 1–4
-├── Project_Justification.docx · Presentation_I_AdSafe.pptx
+├── Project_Justification.docx · Presentation_I/II_AdSafe.pptx
 │
 ├── backend/              FastAPI: main.py, progress.py, routes/{videos,system}.py
 ├── frontend/src/         App.jsx, api.js, styles.css, components/, pages/
@@ -266,18 +347,19 @@ specproj/
 │   ├── config.py · demo_media.py
 │   ├── db/               schema.sql, connection.py (WAL/FK), repository.py
 │   ├── audio/            extractor → transcriber → compliance
-│   ├── vision/           sampler → detector → adspots ★ → tracker
+│   ├── vision/           sampler → detector → adspots ★ → overlay ★ → tracker
 │   ├── pipeline/         orchestrator.py (sequential, per-stage engines)
 │   ├── reports/          exporter.py + pdf_report.py
 │   └── benchmark/        evaluator.py (scoring) + runner.py
 │
 ├── benchmark/            evaluate.py · intake.py · labeller.html · status.py
+│   │                     make_synthetic_clip.py · make_gameplay_clip.py
 │   ├── labels/           ground truth — COMMITTED, this is the deliverable
 │   └── clips/            media — gitignored
 │
 ├── training/             download_dataset.py · prune_classes.py · train.py · RESULTS.md
 ├── docs/UID/main.tex · docs/screens/ (14 captures) · docs/SCREENSHOT_CHECKLIST.md
-├── tests/                95 tests across 8 files
+├── tests/                138 tests across 11 files
 ├── data/ · models/ · datasets/ · .venv-data/        gitignored
 ```
 
@@ -313,8 +395,35 @@ Images — bottles, filled glasses and the liquid all carry the label, overlappi
 separate `Wine glass` and `Cocktail` classes. **Fix ambiguous classes before adding
 images.**
 
-**Smoking is uncovered by any reputable source found.** Open Images has no cigarette or
-tobacco class. Must be described as out of scope, not implied.
+**Smoking is uncovered by any reputable source found.** Verified against the full
+601-class Open Images V7 boxable vocabulary, not assumed: there is no cigarette,
+tobacco, smoking, drug, pill, blood or gore class. Must be described as out of scope,
+not implied.
+
+**A class can exist in a dataset and still be unusable.** `Axe` (2 training instances,
+0 validation) and `Syringe` (19 / 0) *are* Open Images classes, but are near-absent
+from the `test`/`validation` splits this project sources from — so raising the download
+quota does nothing. Zero validation instances is the sharper problem: the class cannot
+be scored at all, and would publish a meaningless per-class mAP while detecting
+nothing. This is a different failure from cigarette, and the two are recorded
+separately.
+
+**Detecting an object says nothing about whether it is real.** The finding that
+prompted M6. A weapon detection alone cannot separate gameplay from footage, and the
+original `any()` rule restricted a whole video on one frame — measured, *300 frames of
+alcohol passed while one frame with a rifle did not*. Context has to come from
+somewhere other than the detector.
+
+**Two overlay false positives, both found by measuring rather than reasoning.**
+*Letterbox bars*: perfectly stationary, and the boundary where they meet the picture
+was the strongest overlay signal in the frame — 2.22% coverage, reported as a HUD. The
+first fix (reject uniform edge bands) then broke detection outright, because busy
+content averages to flat grey, so a mean-only flatness test chewed inward from every
+edge and deleted the corners where a HUD lives; the test must require flatness **and**
+temporal stillness. *Real locked-off footage*: 13% motion, 29% coverage, confidently
+called gameplay — a fixed physical object holds the same unchanging edges as a drawn
+overlay when nothing moves behind it. Dynamic footage measures 98–100% motion, so the
+gate sits at 35%, in the empty space between the two populations.
 
 **Colour is computed, not eyeballed.** The action blue swaps by theme because `#065fd4`
 measures 2.76:1 on the dark card and fails WCAG; dark mode uses `#3ea6ff` (6.21:1). The
@@ -374,7 +483,14 @@ classes" returned 393 Wine instances and **zero Handgun**. Sourced from the `tes
 `validation` splits (the `train` split needs ~7 GB of metadata before a single image);
 `test` is the larger, so it feeds training.
 
-Results: `training/RESULTS.md`.
+**Current class set: 11** (1,508 train / 488 val images), revised after run 1 —
+`Wine` dropped for ambiguity, `Kitchen knife` and `Bow and arrow` added, `Axe` and
+`Syringe` requested but unlearnable from these splits (§12). `train.py` preserves the
+previous weights as `risk_yolov8.prev.pt` and never reuses a run directory, so a worse
+run cannot cost you a working model or overwrite the artefacts `RESULTS.md` cites.
+
+Results (run 1, 10 classes): `training/RESULTS.md`. **Run 2 is prepared but not
+trained** — worth doing on a GPU (~20 min at 40 epochs) rather than CPU (14–16 h).
 
 ---
 
@@ -392,10 +508,20 @@ npm run dev --prefix frontend            # → http://localhost:5173
 2-video library, then double-click `RUN_DEMO.bat`. Stop the server before re-running
 `demo_setup.py` — it cannot delete an open database.
 
-**Tests:** `python -m pytest tests/ -q` (95 passing).
+**Tests:** `python -m pytest tests/ -q` (138 passing).
 
 **Demo vs real:** Settings → Analysis engines. `demo` needs no weights and is instant —
 the safer choice in front of a panel. `real` runs the models.
+
+**Showing real inference:** both seeded videos are synthetic — no speech track, no
+real objects — so in `real` mode they correctly find nothing, which looks broken on a
+projector. Upload `benchmark/clips/synthetic_speech_01.mp4` instead: ~31 s for a 28 s
+clip, all four restricted words recovered with correct timestamps. For overlay
+detection, generate and upload the gameplay clip:
+
+```bash
+python benchmark/make_gameplay_clip.py
+```
 
 ---
 
@@ -414,7 +540,7 @@ the safer choice in front of a panel. `real` runs the models.
 ## 17. Git
 
 - Remote **`meeeee21/autonomous-video-analyzer`** (private), branch `main`
-- Latest commit `aaa8986` — "Replace the logo with an original mark"
+- Latest commit `8dc9f78` — "Weigh weapon findings against overlay evidence instead of flagging on sight"
 - Local identity: AndrewShelton01
 - Committed: source, tests, docs, **benchmark labels**
 - Ignored: `data/`, `models/`, `datasets/`, `benchmark/clips/`, `node_modules/`,
@@ -424,17 +550,34 @@ the safer choice in front of a panel. `real` runs the models.
 
 ## 18. For the viva
 
-**Strongest ground.** The ad-spot free-space algorithm (§7) — the one component that
-could not be solved by pointing another pretrained model at it. Be ready to explain why
-detecting absence is not object detection.
+**Strongest ground.** The two original components (§7). The ad-spot algorithm — be ready
+to explain why detecting *absence* is not object detection. And overlay context — be
+ready to explain why the discriminating signal is edges surviving in the temporal
+**mean**, not variance alone.
 
-**Also defensible.** The honesty guards (§6): the system refuses to let demo output or a
-four-event sample pass as a result. That is a deliberate engineering position, not
-timidity.
+**The best story you have.** *"If the video is Call of Duty and the guns are in the
+game, does it flag it?"* The honest answer is that **it used to**, that this was found
+by asking the question rather than by a test failing, and that the fix required
+admitting the verdict itself was wrong-shaped — not just the threshold. A binary
+verdict is exactly the flaw the project criticises YouTube for, and it was reproduced
+before it was noticed. Say so; it is far stronger than pretending the design was right
+from the start.
 
-**Expect to be asked.** *"How did you get the accuracy figure?"* — this is the weak
-point until clips are labelled. Also: model provenance and licensing (§12), and why
-smoking is not covered.
+**Also defensible.** The honesty guards (§6): the system refuses to let demo output, a
+four-event sample, or an unexplained verdict pass as a result. A deliberate engineering
+position, not timidity.
+
+**Expect to be asked.**
+
+- *"How did you get the accuracy figure?"* — the weak point until clips are labelled.
+- *"Does the overlay detector work on real gameplay?"* — **unknown.** The demonstrator
+  clip is drawn to match the very signal the detector looks for, so it proves the code
+  runs, not that the thresholds hold against real Call of Duty. Validating that needs
+  real captures, which this project does not have and cannot lawfully redistribute.
+  Stated in `benchmark/make_gameplay_clip.py`; do not overclaim it.
+- *"What else triggers it?"* — a channel watermark, a news lower-third, a donation bar.
+  It detects **overlays**, not games; gameplay is an inference from the evidence.
+- Model provenance and licensing (§12), and why smoking is not covered.
 
 **Do not overclaim.** Coverage is partial and the interface says so. Partial coverage,
 accurately described, beats a broad claim that collapses under one question.
