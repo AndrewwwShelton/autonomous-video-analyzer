@@ -51,19 +51,16 @@ DATASET_DIR = ROOT / "datasets" / "risk"
 # Run 2 revision (see training/RESULTS.md). Run 1 measured that class *definition*
 # mattered far more than class volume, so this set is chosen on that basis:
 #
-#   + Kitchen knife, Bow and arrow, Syringe -- visually distinctive classes that
-#     widen coverage without overlapping anything already here. Syringe is the only
-#     drug-paraphernalia class this source offers.
-#   + Axe -- listed in run 1 but only 2 instances survived the download, so
-#     prune_classes.py correctly dropped it. It needs its own quota to be learnable.
+#   + Kitchen knife, Bow and arrow -- visually distinctive and well enough
+#     represented to learn (104 and 71 training instances measured).
 #   - Wine -- REMOVED. It scored worst of all ten classes (mAP@50 0.250, recall
 #     0.250) because Open Images applies the label to bottles, to filled glasses and
 #     to the liquid itself, overlapping both `Wine glass` and `Cocktail`. The model
 #     cannot draw a boundary the labels do not contain. Alcohol stays covered by
 #     Beer, Cocktail and Wine glass.
 WEAPON_CLASSES = ["Handgun", "Shotgun", "Rifle", "Knife", "Kitchen knife",
-                  "Dagger", "Sword", "Axe", "Bow and arrow"]
-SUBSTANCE_CLASSES = ["Beer", "Cocktail", "Wine glass", "Syringe"]
+                  "Dagger", "Sword", "Bow and arrow"]
+SUBSTANCE_CLASSES = ["Beer", "Cocktail", "Wine glass"]
 CLASSES = WEAPON_CLASSES + SUBSTANCE_CLASSES
 
 # Verified against the full 601-class Open Images V7 boxable vocabulary, not
@@ -71,6 +68,22 @@ CLASSES = WEAPON_CLASSES + SUBSTANCE_CLASSES
 # class. No amount of retraining covers those from this source -- they need a
 # different dataset. Recorded here so the gap stays visible at the point it matters.
 UNCOVERED = ["cigarette", "tobacco", "smoking", "drugs", "pills", "blood", "gore"]
+
+# A separate and more subtle failure: these DO exist in the Open Images vocabulary,
+# but are almost absent from the two splits this script can afford to source from.
+# Measured with a 600-image-per-class quota -- so raising the quota does not help,
+# the images simply are not in `test`/`validation`:
+#
+#     Axe        2 training instances,  0 validation
+#     Syringe   19 training instances,  0 validation
+#
+# Zero validation instances is worse than merely sparse: the class cannot be
+# scored at all, so it would report a meaningless per-class mAP while detecting
+# nothing. Both were requested in a real run and dropped by prune_classes.py.
+# The much larger Open Images `train` split likely carries enough of both, but
+# reaching it costs the ~7 GB metadata download this module's docstring explains
+# we avoid. Recovering these two means paying that cost or changing source.
+TOO_SPARSE_IN_THESE_SPLITS = ["Axe", "Syringe"]
 
 
 def main() -> int:
@@ -96,7 +109,9 @@ def main() -> int:
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"classes ({len(CLASSES)}): {', '.join(CLASSES)}")
-    print(f"not available from this source: {', '.join(UNCOVERED)}")
+    print(f"absent from Open Images V7 entirely: {', '.join(UNCOVERED)}")
+    print(f"present but too sparse in these splits: "
+          f"{', '.join(TOO_SPARSE_IN_THESE_SPLITS)}")
     print()
 
     counts = {}
@@ -164,6 +179,7 @@ def main() -> int:
         "weapon_classes": WEAPON_CLASSES,
         "substance_classes": SUBSTANCE_CLASSES,
         "not_covered_by_this_source": UNCOVERED,
+        "present_but_too_sparse_in_these_splits": TOO_SPARSE_IN_THESE_SPLITS,
         "counts": counts,
         "seed": args.seed,
         "sampling": ("per-class quota rather than a global cap, so rare weapon "

@@ -87,6 +87,44 @@ def test_uncovered_classes_are_never_requested_from_open_images():
     )
 
 
+def test_classes_too_sparse_to_learn_are_not_requested():
+    """Axe and Syringe exist in Open Images but are near-absent from the splits
+    this project sources from -- 2 and 19 training instances, zero validation.
+
+    They were requested in a real run and pruned. Re-adding them looks harmless,
+    which is exactly why it needs a guard: a class with no validation instances
+    reports a meaningless score while detecting nothing.
+    """
+    from training.download_dataset import CLASSES, TOO_SPARSE_IN_THESE_SPLITS
+    requested = {c.lower() for c in CLASSES} & {
+        s.lower() for s in TOO_SPARSE_IN_THESE_SPLITS}
+    assert not requested, (
+        f"{sorted(requested)} is too sparse in the test/validation splits to "
+        f"learn. Raising the quota does not help -- the images are not there."
+    )
+
+
+def test_training_class_list_matches_the_prepared_dataset():
+    """CLASSES and dataset.yaml drifting apart silently mislabels everything.
+
+    YOLO label files address classes by integer index, so if prune_classes.py has
+    reduced the dataset and CLASSES still lists the original set, every index
+    beyond the first divergence points at the wrong class.
+    """
+    import pytest
+    import yaml
+    from training.download_dataset import CLASSES, DATASET_DIR
+    data_yaml = DATASET_DIR / "dataset.yaml"
+    if not data_yaml.exists():
+        pytest.skip("no prepared dataset (datasets/ is gitignored)")
+    names = yaml.safe_load(data_yaml.read_text(encoding="utf-8"))["names"]
+    prepared = [names[i] for i in sorted(names)]
+    assert prepared == CLASSES, (
+        f"dataset.yaml has {prepared}\nbut CLASSES is {CLASSES}.\n"
+        f"Re-run the download, or align CLASSES with what prune_classes.py left."
+    )
+
+
 # ------------------------------------------------------- detection -> flags
 
 def test_only_risk_detections_become_flags():
