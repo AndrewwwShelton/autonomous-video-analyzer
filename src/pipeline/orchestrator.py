@@ -103,7 +103,9 @@ def _run_vision_stage(video: dict, demo: bool,
 
     sample_fps = repo.get_config("frame_sample_fps") or 1.0
     weights = repo.get_config("vision_weights") or ["yolov8n.pt"]
-    detector = YoloDetector(tuple(weights), confidence_threshold=threshold)
+    max_imgsz = repo.get_config("detection_max_imgsz") or config.DEFAULT_MAX_IMGSZ
+    detector = YoloDetector(tuple(weights), confidence_threshold=threshold,
+                            max_imgsz=int(max_imgsz))
 
     flags: list = []
     frames_candidates: list[tuple[float, list[dict]]] = []

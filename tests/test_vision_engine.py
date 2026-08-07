@@ -209,3 +209,88 @@ def test_demo_boxes_stay_inside_the_frame():
         x1, y1, x2, y2 = f["bounding_box"]
         assert 0 <= x1 < x2 <= 640
         assert 0 <= y1 < y2 <= 480
+
+
+# ------------------------------------------------- inference resolution
+
+def test_inference_resolution_does_not_downscale_the_source():
+    """The failure this prevents: ultralytics defaults to 640, so a 1280x720
+    frame was halved and a pistol in an outstretched hand fell below what
+    YOLOv8n can resolve. Measured on real footage — nothing above 0.07 at 640,
+    Knife at 0.657 at 1280. The model was never blind; the weapon was shrunk.
+    """
+    from src.vision.detector import inference_imgsz
+    assert inference_imgsz(1280) == 1280
+    assert inference_imgsz(1920) == 1280        # capped, not downscaled to 640
+
+
+def test_inference_resolution_never_upscales_past_the_source():
+    """Upscaling spends time without adding information."""
+    from src.vision.detector import inference_imgsz
+    assert inference_imgsz(800) == 800
+    assert inference_imgsz(960) == 960
+
+
+def test_inference_resolution_has_a_sane_floor_and_is_stride_aligned():
+    from src.vision.detector import MIN_IMGSZ, inference_imgsz
+    assert inference_imgsz(120) == MIN_IMGSZ
+    for width in (100, 640, 700, 851, 1280, 4096):
+        assert inference_imgsz(width) % 32 == 0, width
+
+
+def test_inference_resolution_cap_is_configurable():
+    from src.vision.detector import inference_imgsz
+    assert inference_imgsz(4096, max_imgsz=1920) == 1920
+
+
+def test_two_scales_are_used_when_the_source_is_larger_than_the_floor():
+    """One resolution cannot serve both framings. Measured on real clips:
+
+           imgsz    distant pistol    close-up pistol
+             640          0 flags          10 flags
+            1280         13                 1
+
+    The relationship is inverted, so the detector runs both ends.
+    """
+    from src.vision.detector import MIN_IMGSZ, inference_scales
+    assert inference_scales(1280) == (MIN_IMGSZ, 1280)
+    assert inference_scales(1080) == (MIN_IMGSZ, 1088)
+
+
+def test_a_small_source_is_not_run_twice_at_the_same_size():
+    """Duplicating the identical pass would double the cost for nothing."""
+    from src.vision.detector import MIN_IMGSZ, inference_scales
+    assert inference_scales(640) == (MIN_IMGSZ,)
+    assert inference_scales(320) == (MIN_IMGSZ,)
+
+
+def test_the_same_object_found_at_both_scales_is_counted_once():
+    """Otherwise every object visible at both resolutions is flagged twice,
+    inflating the counts the compliance report is built on."""
+    from src.vision.detector import merge_scale_detections
+    merged = merge_scale_detections([
+        det("knife", conf=0.62, box=[100, 100, 200, 200]),
+        det("knife", conf=0.81, box=[104, 98, 203, 205]),   # same gun, other scale
+    ])
+    assert len(merged) == 1
+    assert merged[0].confidence == 0.81                    # highest confidence wins
+
+
+def test_distinct_objects_of_the_same_class_are_both_kept():
+    from src.vision.detector import merge_scale_detections
+    merged = merge_scale_detections([
+        det("knife", conf=0.7, box=[0, 0, 50, 50]),
+        det("knife", conf=0.7, box=[400, 400, 460, 460]),
+    ])
+    assert len(merged) == 2
+
+
+def test_overlapping_boxes_of_different_classes_are_preserved():
+    """A weapon sits inside the box of the person holding it; collapsing those
+    would discard the weapon."""
+    from src.vision.detector import merge_scale_detections
+    merged = merge_scale_detections([
+        det("person", conf=0.9, box=[100, 100, 200, 200]),
+        det("knife", conf=0.6, box=[100, 100, 200, 200]),
+    ])
+    assert len(merged) == 2

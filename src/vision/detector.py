@@ -76,6 +76,88 @@ class DetectorError(RuntimeError):
     """Raised when detection cannot run, with a message fit for the UI."""
 
 
+# Upper bound on inference resolution. Ultralytics defaults to 640, which silently
+# halves 720p and quarters 4K -- and a weapon is a *small* object in real footage.
+# Measured on an ATF firing-range clip (1280x720, pistol in an outstretched hand):
+#
+#     imgsz=640   nothing above 0.07          <- the whole weapon module looked broken
+#     imgsz=1280  Knife at 0.657              <- comfortably above the 0.5 threshold
+#     imgsz=1920  Knife at 0.562
+#
+# The model was never blind; the pistol was simply resized below what YOLOv8n can
+# resolve. 1280 caps the cost while covering the 720p/1080p footage this tool is
+# aimed at. Raising it further mainly buys detections on 4K sources.
+DEFAULT_MAX_IMGSZ = 1280
+MIN_IMGSZ = 640
+
+
+def inference_imgsz(frame_width: int, max_imgsz: int = DEFAULT_MAX_IMGSZ) -> int:
+    """Inference resolution for a frame of this width, as a multiple of 32.
+
+    Never downscales below the source unnecessarily, because downscaling is what
+    made small weapons undetectable; never upscales past it, because that spends
+    time without adding information. Clamped so a thumbnail-sized video still gets
+    a sane window and a 4K one does not become unusably slow.
+    """
+    target = max(MIN_IMGSZ, min(int(frame_width), int(max_imgsz)))
+    return int(round(target / 32) * 32)
+
+
+def inference_scales(frame_width: int,
+                     max_imgsz: int = DEFAULT_MAX_IMGSZ) -> tuple[int, ...]:
+    """The resolutions a frame is run at. Usually two, and that is the point.
+
+    Detection count against resolution, measured on two real clips -- a firing
+    range with a pistol at arm's length, and a review with one filling the frame:
+
+        imgsz    distant pistol    close-up pistol
+          640          0 flags          10 flags
+          960          1                 4
+         1280         13                 1
+         1600         15                 0
+
+    The relationship is inverted, so **no single resolution serves both**. The
+    fine-tune was trained at 512 px: shrink the frame and a distant weapon falls
+    below what the network can resolve, enlarge it and a near one grows past the
+    scales the model ever saw. Running both ends and merging is what makes the
+    module work on real footage rather than only on the framing it was tuned for.
+
+    The cost is roughly double, which is the honest price of the recall.
+    """
+    low = MIN_IMGSZ
+    high = inference_imgsz(frame_width, max_imgsz)
+    return (low,) if high == low else (low, high)
+
+
+def _iou(a: list[int], b: list[int]) -> float:
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    if inter == 0:
+        return 0.0
+    union = ((ax2 - ax1) * (ay2 - ay1)) + ((bx2 - bx1) * (by2 - by1)) - inter
+    return inter / union if union else 0.0
+
+
+def merge_scale_detections(detections: list["Detection"],
+                           iou_threshold: float = 0.55) -> list["Detection"]:
+    """Collapse the same object found at more than one scale into one detection.
+
+    Without this every object visible at both resolutions is flagged twice, which
+    would inflate the counts the compliance report is built on. Highest confidence
+    wins; only same-label boxes are compared, so a genuine overlap between, say, a
+    person and the weapon they hold is preserved.
+    """
+    kept: list[Detection] = []
+    for d in sorted(detections, key=lambda x: -x.confidence):
+        if not any(k.label == d.label and _iou(k.box, d.box) >= iou_threshold
+                   for k in kept):
+            kept.append(d)
+    return kept
+
+
 def resolve_weights(name_or_path: str) -> str:
     """Prefer a copy under models/; otherwise let ultralytics fetch it by name.
 
@@ -100,10 +182,12 @@ class YoloDetector:
     """
 
     def __init__(self, weights: tuple[str, ...] = ("yolov8n.pt",),
-                 confidence_threshold: float = 0.5, device: str | None = None):
+                 confidence_threshold: float = 0.5, device: str | None = None,
+                 max_imgsz: int = DEFAULT_MAX_IMGSZ):
         self.weights = tuple(weights)
         self.confidence_threshold = confidence_threshold
         self.device = device
+        self.max_imgsz = max_imgsz
         self._models: list = []
 
     def _load(self) -> list:
@@ -126,27 +210,40 @@ class YoloDetector:
                     ) from e
         return self._models
 
+    def _predict_at(self, model, frame, imgsz: int, timestamp: float) -> list[Detection]:
+        """One model, one scale."""
+        try:
+            results = model.predict(
+                frame, conf=self.confidence_threshold, imgsz=imgsz,
+                verbose=False, device=self.device,
+            )
+        except Exception as e:
+            raise DetectorError(f"Detection failed: {e}") from e
+
+        found: list[Detection] = []
+        for r in results:
+            for box in (r.boxes or []):
+                x1, y1, x2, y2 = (round(float(v)) for v in box.xyxy[0].tolist())
+                found.append(Detection(
+                    label=r.names[int(box.cls)],
+                    confidence=round(float(box.conf), 3),
+                    box=[x1, y1, x2, y2],
+                    timestamp=round(timestamp, 3),
+                ))
+        return found
+
     def detect_frame(self, frame, timestamp: float = 0.0) -> list[Detection]:
-        """All detections above threshold for a single frame (BGR numpy array)."""
+        """All detections above threshold for a single frame (BGR numpy array).
+
+        Every model is run at every scale in `inference_scales`, and the results
+        are merged. One resolution cannot cover both a distant weapon and one
+        filling the frame -- see the measurements in `inference_scales`.
+        """
         out: list[Detection] = []
         for model in self._load():
-            try:
-                results = model.predict(
-                    frame, conf=self.confidence_threshold,
-                    verbose=False, device=self.device,
-                )
-            except Exception as e:
-                raise DetectorError(f"Detection failed: {e}") from e
-            for r in results:
-                for box in (r.boxes or []):
-                    x1, y1, x2, y2 = (round(float(v)) for v in box.xyxy[0].tolist())
-                    out.append(Detection(
-                        label=r.names[int(box.cls)],
-                        confidence=round(float(box.conf), 3),
-                        box=[x1, y1, x2, y2],
-                        timestamp=round(timestamp, 3),
-                    ))
-        return out
+            for imgsz in inference_scales(frame.shape[1], self.max_imgsz):
+                out += self._predict_at(model, frame, imgsz, timestamp)
+        return merge_scale_detections(out)
 
     @property
     def name(self) -> str:

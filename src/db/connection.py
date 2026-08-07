@@ -95,6 +95,11 @@ def _default_config() -> list[tuple[str, str, str, str]]:
          "Minimum YOLO confidence for a visual flag to be recorded"),
         ("whisper_model", config.DEFAULT_WHISPER_MODEL, "string",
          "faster-whisper model size used for transcription (D3)"),
+        ("detection_max_imgsz", str(config.DEFAULT_MAX_IMGSZ), "int",
+         "Cap on detection resolution. Ultralytics defaults to 640, which halves "
+         "720p footage and made a pistol in real video undetectable; raising it to "
+         "the source resolution recovered the detection. Higher finds smaller "
+         "objects and costs proportionally more time"),
         ("vision_weights", json.dumps(_default_vision_weights()), "json",
          "YOLO weight files used for visual detection, resolved from models/. Stock COCO "
          "covers knife/scissors/bat/bottle/wine glass but has no gun, cigarette or drugs; "

@@ -17,6 +17,7 @@ DEFAULT_FRAME_SAMPLE_FPS = 1.0
 DEFAULT_MIN_AD_SPOT_SEC = 5.0
 DEFAULT_CONFIDENCE_THRESHOLD = 0.5
 DEFAULT_WHISPER_MODEL = "base.en"
+DEFAULT_MAX_IMGSZ = 1280   # detection resolution cap (src/vision/detector.py)
 
 
 def ensure_dirs() -> None:
