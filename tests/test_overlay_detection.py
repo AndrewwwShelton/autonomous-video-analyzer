@@ -202,6 +202,68 @@ def test_synthetic_gameplay_clip_is_detected_end_to_end():
     assert len(r.regions) >= 2
 
 
+def _panning_scene(n: int = 40, seed: int = 5) -> list[np.ndarray]:
+    """A textured world the camera pans across — how real footage behaves.
+
+    Per-pixel random noise, used elsewhere in this file, never settles into a
+    stable temporal mean, so it cannot model a scene that merely *moves*.
+    """
+    rng = np.random.default_rng(seed)
+    world = rng.integers(40, 210, (H, W * 3, 3), dtype=np.uint8)
+    world = cv2.GaussianBlur(world, (9, 9), 0)
+    for _ in range(120):                       # structures, so edges exist
+        x, y = int(rng.integers(0, W * 3)), int(rng.integers(0, H))
+        cv2.rectangle(world, (x, y), (x + 60, y + 45),
+                      tuple(int(c) for c in rng.integers(0, 255, 3)), -1)
+    return [world[:, i * 12:i * 12 + W].copy() for i in range(n)]
+
+
+def test_a_real_game_hud_is_not_required_to_be_pixel_static():
+    """The synthetic HUD elsewhere here is opaque and identical every frame,
+    which is an idealisation real footage does not match.
+
+    Counter-Strike gameplay measured: the HUD is semi-transparent and its
+    contents change (ammo, radar dots), so the 1st percentile of per-pixel
+    variance was 6.19 — above the absolute stable_std_max of 4.0. Only 0.32% of
+    the frame qualified as static and the HUD was missed, though it is plainly
+    sharp in the temporal mean. Stability is therefore judged relative to the
+    frame as well.
+
+    Synthesised rather than shipping a copyrighted game capture.
+    """
+    def full_hud(canvas):
+        """Closer to a shooter's actual furniture than the minimal one above:
+        radar panel, health and armour, ammo, money — the elements that give a
+        real HUD its coverage."""
+        f = _draw_hud(canvas)
+        cv2.rectangle(f, (18, 14), (128, 118), (255, 255, 255), 2)      # radar
+        cv2.line(f, (18, 66), (128, 66), (255, 255, 255), 1)
+        cv2.line(f, (73, 14), (73, 118), (255, 255, 255), 1)
+        cv2.rectangle(f, (214, H - 50), (330, H - 30), (255, 255, 255), 2)  # armour
+        cv2.putText(f, "$3400", (30, H - 66), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (255, 255, 255), 2)                             # money
+        return f
+
+    hud = full_hud(np.zeros((H, W, 3), np.uint8))
+    # Composite only where the HUD has ink. Blending the whole frame against a
+    # mostly-black canvas would darken the scene everywhere and crush its
+    # variance, which is not what drawing an overlay does.
+    ink = hud.any(axis=2)
+    frames = []
+    for i, base in enumerate(_panning_scene()):
+        f = base.copy()
+        # 60% alpha: every overlay pixel still moves with the scene behind it.
+        f[ink] = (0.4 * base[ink] + 0.6 * hud[ink]).astype(np.uint8)
+        cv2.putText(f, f"{100 - i}", (40, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8, (255, 255, 255), 2)      # a counter that ticks
+        frames.append(f)
+
+    r = analyse_frames(frames)
+    assert r.verdict == "overlay", (
+        f"a translucent, changing HUD was missed: {r.reason}"
+    )
+
+
 def test_report_serialises_for_the_api():
     r = analyse_frames([_draw_hud(f) for f in _moving_scene()])
     d = r.as_dict()

@@ -52,6 +52,17 @@ class OverlayParams:
     """Tunable knobs. Defaults chosen against 720p gameplay and filmed footage."""
     work_width: int = 320           # analysis resolution, as in adspots.py
     stable_std_max: float = 4.0     # per-pixel temporal std at or below this is static
+    # ...but stability is judged RELATIVE to the frame as well, because a real
+    # game overlay is not pixel-static. Measured on Counter-Strike footage: the
+    # HUD is semi-transparent and its contents change (ammo counts, radar dots),
+    # so even the 1st percentile of per-pixel variance was 6.19 -- above the
+    # absolute threshold. Only 0.32% of the frame qualified as "static" and the
+    # HUD went undetected, though it is plainly sharp in the temporal mean.
+    # Taking the most-stable tenth of the frame adapts to the content: overlay
+    # pixels need only be markedly steadier than the scene behind them, not
+    # frozen. The motion gate below is what stops this being meaningless on
+    # footage where nothing moves at all.
+    stable_percentile: float = 10.0
     motion_std_min: float = 10.0    # and above this the pixel is genuinely moving
     # The scene must genuinely move before any overlay claim is made. Measured:
     # dynamic footage (gameplay, handheld, moving subject) sits at 98-100%, while
@@ -144,6 +155,19 @@ class OverlayAccumulator:
 
     # ----------------------------------------------------------------- report
 
+    def _stability_threshold(self, std: np.ndarray) -> float:
+        """How steady a pixel must be to count as overlay, for THIS footage.
+
+        The looser of an absolute floor and the frame's own tenth percentile. The
+        absolute floor alone missed real game HUDs, which are translucent and
+        carry changing values; the percentile alone would pick the calmest tenth
+        of any footage, including video with no overlay in it. Requiring structure
+        in the temporal mean, and a genuinely moving scene, is what makes the
+        relative measure safe.
+        """
+        return max(float(self.p.stable_std_max),
+                   float(np.percentile(std, self.p.stable_percentile)))
+
     def _statistics(self) -> tuple[np.ndarray, np.ndarray]:
         """Temporal mean and per-pixel standard deviation."""
         mean = self._sum / self._n
@@ -180,8 +204,8 @@ class OverlayAccumulator:
         return self._judge(motion_ratio, coverage, regions)
 
     def _overlay_mask(self, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
-        """Pixels that are both temporally static and structured in the mean."""
-        stable = std <= self.p.stable_std_max
+        """Pixels that are both temporally steady and structured in the mean."""
+        stable = std <= self._stability_threshold(std)
 
         # Edges in the MEAN image, not in any single frame. A static overlay stays
         # sharp under averaging; moving content blurs away. This is what stops a
