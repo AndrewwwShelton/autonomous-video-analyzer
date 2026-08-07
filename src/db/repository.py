@@ -208,6 +208,29 @@ def set_config(key: str, value, config_type: str = "string", description: str | 
 
 # ---------------------------------------------------------------- Aggregates
 
+def _group_by_display_label(raw_rows: list[dict], limit: int = 8) -> list[dict]:
+    """Collapse raw detector classes into the wording the interface uses.
+
+    Confidence is re-averaged weighted by count, so merging three 'Knife' rows
+    with one 'Dagger' row does not let the single rare class pull the mean about.
+    """
+    from src.vision.detector import display_label   # local: avoids a cycle at import
+
+    merged: dict[str, dict] = {}
+    for r in raw_rows:
+        key = display_label(r["label"])
+        acc = merged.setdefault(key, {"label": key, "value": 0, "_conf_sum": 0.0})
+        acc["value"] += r["value"]
+        acc["_conf_sum"] += (r.get("avg_confidence") or 0.0) * r["value"]
+
+    out = []
+    for acc in merged.values():
+        out.append({"label": acc["label"], "value": acc["value"],
+                    "avg_confidence": round(acc["_conf_sum"] / acc["value"], 3)
+                    if acc["value"] else None})
+    out.sort(key=lambda r: (-r["value"], r["label"]))
+    return out[:limit]
+
 # The same rule as orchestrator.assess_compliance(), expressed in SQL so the whole
 # library can be summarised in one pass instead of one query per video.
 #
@@ -274,10 +297,14 @@ def get_library_stats(db_path: Path | None = None) -> dict:
                 "SELECT word_flagged AS label, COUNT(*) AS value, "
                 "       MAX(severity) AS severity FROM AudioFlags "
                 "GROUP BY word_flagged ORDER BY value DESC, label LIMIT 8"),
-            "top_objects": rows(
+            # Grouped in Python rather than SQL: the presentation wording lives in
+            # detector.py beside the risk map, and the database has no business
+            # knowing it. Aggregating on the raw class here would leave the chart
+            # saying "Knife" while every other screen says "Handheld weapon".
+            "top_objects": _group_by_display_label(rows(
                 "SELECT object_detected AS label, COUNT(*) AS value, "
                 "       ROUND(AVG(confidence_score), 3) AS avg_confidence FROM VisualFlags "
-                "GROUP BY object_detected ORDER BY value DESC, label LIMIT 8"),
+                "GROUP BY object_detected")),
             "spot_types": rows(
                 "SELECT spot_type AS label, COUNT(*) AS value, "
                 "       ROUND(SUM(timestamp_end - timestamp_start), 1) AS seconds FROM AdSpots "

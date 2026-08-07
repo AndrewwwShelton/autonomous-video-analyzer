@@ -10,6 +10,7 @@ from src.db import repository as repo
 from src.demo_media import generate_demo_video
 from src.pipeline.orchestrator import (assess_compliance, compliance_verdict,
                                        process_video)
+from src.vision.detector import display_label
 from src.vision.sampler import probe_video, save_thumbnail
 
 router = APIRouter(tags=["videos"])
@@ -141,7 +142,10 @@ def flags(video_id: int) -> dict:
     assessment = assess_compliance(video_id) if done else None
     return {
         "audio": repo.get_audio_flags(video_id),
-        "visual": repo.get_visual_flags(video_id),
+        # display_label is derived on read, not stored, so findings recorded
+        # before the wording existed are presented the same way as new ones.
+        "visual": [{**f, "display_label": display_label(f["object_detected"])}
+                   for f in repo.get_visual_flags(video_id)],
         "ad_spots": repo.get_ad_spots(video_id),
         "verdict": assessment["verdict"] if assessment else None,
         "assessment": assessment,

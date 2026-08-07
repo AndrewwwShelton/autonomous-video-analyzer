@@ -13,6 +13,7 @@ import pandas as pd
 from src import config
 from src.db import repository as repo
 from src.pipeline.orchestrator import assess_compliance
+from src.vision.detector import display_label
 
 
 def _gather(video_id: int) -> dict:
@@ -23,7 +24,8 @@ def _gather(video_id: int) -> dict:
     return {
         "video": video,
         "audio_flags": repo.get_audio_flags(video_id),
-        "visual_flags": repo.get_visual_flags(video_id),
+        "visual_flags": [{**f, "display_label": display_label(f["object_detected"])}
+                         for f in repo.get_visual_flags(video_id)],
         "ad_spots": repo.get_ad_spots(video_id),
         "compliance_status": assessment["verdict"],
         # Exported alongside the verdict so a report read away from the

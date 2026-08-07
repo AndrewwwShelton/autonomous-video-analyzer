@@ -30,8 +30,10 @@ function buildEvents(audio, visual, adSpots, duration) {
       lane: 1, start: Math.max(0, f.frame_timestamp - minW / 2),
       end: f.frame_timestamp + minW / 2,
       key: f.risk_category === "Substance" ? "Medium" : "High",
-      label: f.object_detected,
-      detail: `${f.risk_category} · confidence ${f.confidence_score.toFixed(2)}`,
+      label: f.display_label ?? f.object_detected,
+      detail: `${f.risk_category} · confidence ${f.confidence_score.toFixed(2)}`
+        + (f.display_label && f.display_label !== f.object_detected
+             ? ` · detected as "${f.object_detected}"` : ""),
     });
   for (const s of adSpots)
     ev.push({

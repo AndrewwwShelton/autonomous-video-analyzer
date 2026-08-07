@@ -152,6 +152,21 @@ _VERDICTS = {
 }
 
 
+def _object_cell(flag: dict) -> str:
+    """Grouped term, with the model's own class beneath it.
+
+    The models place an object in a risk category far more reliably than they
+    name it -- a pistol was detected as "Knife" on real footage. Printing the raw
+    class as the headline would claim a precision that was never measured, but
+    dropping it would remove the only way to audit a finding.
+    """
+    shown = flag.get("display_label") or flag["object_detected"]
+    raw = flag["object_detected"]
+    if shown == raw:
+        return f"<b>{shown}</b>"
+    return f'<b>{shown}</b><br/><font size="6" color="#7a7a7a">detected as {raw}</font>'
+
+
 def _verdict_block(verdict: str, styles, width, reason: str | None = None):
     colour, label = _VERDICTS.get(verdict, (LIMITED, f"{verdict} — review before publishing"))
     text = f'<font color="{colour.hexval()}"><b>{label}</b></font>'
@@ -268,7 +283,7 @@ def build_pdf(data: dict, out_path) -> None:
             colour = CATEGORY_COLOUR.get(f.get("risk_category"), INK_2).hexval()
             rows.append([
                 Paragraph(_fmt_time(f["frame_timestamp"]), styles["cell"]),
-                Paragraph(f'<b>{f["object_detected"]}</b>', styles["cell"]),
+                Paragraph(_object_cell(f), styles["cell"]),
                 Paragraph(f'<font color="{colour}"><b>{f.get("risk_category") or "-"}</b></font>',
                           styles["cell"]),
                 Paragraph(f'{f["confidence_score"]:.2f}', styles["cell"]),

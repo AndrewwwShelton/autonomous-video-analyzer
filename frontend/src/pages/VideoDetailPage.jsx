@@ -224,7 +224,15 @@ function VisualTable({ rows, onSeek }) {
         {rows.map((f) => (
           <tr key={f.visual_flag_id}>
             <td><JumpBtn t={f.frame_timestamp} onSeek={onSeek} /></td>
-            <td><b>{f.object_detected}</b></td>
+            {/* Grouped term first: the models place an object in a category far
+                more reliably than they name it — a pistol was detected as
+                "Knife". The raw class stays visible so nothing is hidden. */}
+            <td>
+              <b>{f.display_label ?? f.object_detected}</b>
+              {f.display_label && f.display_label !== f.object_detected && (
+                <div className="raw-label">detected as “{f.object_detected}”</div>
+              )}
+            </td>
             <td><SeverityChip value={f.risk_category} /></td>
             <td>
               <span className="confbar">

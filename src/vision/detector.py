@@ -58,6 +58,47 @@ RISK_CATEGORY_MAP = {
 SURFACE_CLASSES = {"tv", "laptop", "dining table", "desk", "couch", "chair", "bed"}
 
 
+# What a finding is *called* in the interface and the report.
+#
+# The models place an object in a risk category far more reliably than they name
+# it. Measured on real footage: a pistol was detected as "Knife" at 0.66, and as
+# "Rifle" in a second clip -- correct category, wrong class both times. Handgun is
+# the weakest class in the fine-tune (84 training instances, recall 0.375), and
+# telling a bladed weapon from a firearm is precisely what the model cannot do.
+#
+# Reporting "knife" as fact therefore claims a precision that was never measured.
+# The grouped term is what the evidence actually supports. The raw class is still
+# recorded and still shown alongside, so nothing is hidden and a wrong grouping
+# stays diagnosable -- this changes the wording, not the finding.
+_ALCOHOL = {"beer", "wine", "cocktail", "wine glass", "alcohol"}
+_SMOKING = {"cigarette", "smoking", "vape", "tobacco"}
+_DRUGS = {"drugs", "pills", "syringe"}
+
+DISPLAY_TERMS = {
+    "Weapon": "Handheld weapon",
+    "Graphic": "Graphic content",
+}
+
+
+def display_label(raw_label: str) -> str:
+    """Presentation wording for a detected class. Falls back to the raw label."""
+    label = (raw_label or "").strip().lower()
+    category = RISK_CATEGORY_MAP.get(label)
+    if category is None:
+        return raw_label
+    if category == "Substance":
+        if label in _ALCOHOL:
+            return "Alcohol"
+        if label in _SMOKING:
+            return "Tobacco or vape"
+        if label in _DRUGS:
+            return "Drug paraphernalia"
+        # `bottle` is COCO's, and a water bottle looks the same as a beer one.
+        # Naming the container rather than its contents is the claim we can make.
+        return "Drink container"
+    return DISPLAY_TERMS.get(category, raw_label)
+
+
 def normalise_label(raw_label: str) -> str | None:
     """Map a model's class name to a risk_category. None means 'not a risk class'."""
     return RISK_CATEGORY_MAP.get(raw_label.strip().lower())

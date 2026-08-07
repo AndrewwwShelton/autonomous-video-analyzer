@@ -294,3 +294,55 @@ def test_overlapping_boxes_of_different_classes_are_preserved():
         det("knife", conf=0.6, box=[100, 100, 200, 200]),
     ])
     assert len(merged) == 2
+
+
+# ------------------------------------------------- presentation wording
+
+def test_every_weapon_class_reports_as_one_grouped_term():
+    """The models identify the category reliably and the class unreliably: a
+    pistol was detected as "Knife" on one real clip and "Rifle" on another.
+    Reporting the specific class as fact claims precision never measured."""
+    from src.vision.detector import display_label
+    for raw in ("knife", "Knife", "Rifle", "handgun", "Dagger", "Sword",
+                "scissors", "baseball bat", "shotgun"):
+        assert display_label(raw) == "Handheld weapon", raw
+
+
+def test_substance_wording_does_not_overclaim_a_bottle():
+    """COCO's `bottle` is as often water as beer. Naming the container rather
+    than its contents is the claim the detection actually supports."""
+    from src.vision.detector import display_label
+    assert display_label("bottle") == "Drink container"
+    assert display_label("Beer") == "Alcohol"
+    assert display_label("Cocktail") == "Alcohol"
+    assert display_label("cigarette") == "Tobacco or vape"
+    assert display_label("syringe") == "Drug paraphernalia"
+
+
+def test_non_risk_classes_are_returned_unchanged():
+    from src.vision.detector import display_label
+    assert display_label("person") == "person"
+    assert display_label("laptop") == "laptop"
+
+
+def test_every_mapped_class_has_a_display_term():
+    """A gap would surface a bare model class name in the middle of a report."""
+    from src.vision.detector import RISK_CATEGORY_MAP, display_label
+    for raw in RISK_CATEGORY_MAP:
+        assert display_label(raw) != raw, f"{raw} falls through to its raw class"
+
+
+def test_analytics_groups_on_the_same_wording_as_the_rest_of_the_app():
+    """Otherwise the chart says "Knife" while every other screen says
+    "Handheld weapon"."""
+    from src.db.repository import _group_by_display_label
+    grouped = _group_by_display_label([
+        {"label": "Knife", "value": 6, "avg_confidence": 0.80},
+        {"label": "Rifle", "value": 2, "avg_confidence": 0.60},
+        {"label": "Beer", "value": 3, "avg_confidence": 0.70},
+    ])
+    by = {r["label"]: r for r in grouped}
+    assert by["Handheld weapon"]["value"] == 8
+    # Weighted by count, so the rarer class cannot pull the mean about.
+    assert by["Handheld weapon"]["avg_confidence"] == 0.75
+    assert by["Alcohol"]["value"] == 3

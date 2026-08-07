@@ -253,6 +253,11 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 .demo-banner .material-symbols-outlined { font-size: 20px; color: var(--mon-yellow); }
 .cell-demo { color: var(--mon-yellow); font-weight: 500; }
 
+/* The model's own class name, kept beside the grouped term. Secondary because it
+   is the less reliable of the two, present because hiding it would remove the
+   only way to tell a wrong grouping from a wrong detection. */
+.raw-label { color: var(--ink-3); font-size: 11px; margin-top: 2px; }
+
 /* Verdict explanation. The reasoning is shown, not hidden behind a tooltip:
    the binary rule this replaced gave no account of itself, and an unexplained
    "Restricted" is exactly the creator complaint the project is built around. */
