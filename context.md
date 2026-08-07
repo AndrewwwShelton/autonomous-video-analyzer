@@ -65,7 +65,7 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 | **Branding** | Original logo replacing a YouTube-derived mark |
 | **M6 Overlay context ★** | **Persistent-overlay detection** + a three-state verdict, so rendered weapons stop restricting gameplay footage |
 | **M7 Real-video hardening** | Multi-scale detection, grouped finding names, per-flag provenance, relative overlay stability — all driven by testing four real clips |
-| **M3b run 2** | Retrained on a Colab T4: 40 epochs @ 640 px, 11 classes — **mAP@50 0.591**, Handgun 0.487 → 0.546 |
+| **M3b run 2** | Retrained on a Colab T4 — better on every headline metric, **rejected**: it detected the ATF pistol zero times where run 1 found it 13 |
 
 Milestones were deliberately not built in numeric order. M4 came early because the UID
 document needed a real interface to photograph; M3b was promoted from "optional" once
@@ -158,7 +158,7 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 | **M1** Speech-to-text (faster-whisper, word timestamps) | ✅ real |
 | **M2** Visual risk detection (COCO + fine-tune, multi-scale) | ✅ real |
 | **M3a** Ad-spot free-space algorithm ★ | ✅ real (tested) |
-| **M3b** Fine-tuned risk model (Open Images, mAP@50 0.591) | ✅ real |
+| **M3b** Fine-tuned risk model (Open Images, mAP@50 0.566) | ✅ real |
 | **M5** CSV / JSON / PDF export + `AuditReports` archive | ✅ real (tested) |
 | **M6** Persistent-overlay detection ★ | ✅ real (tested) |
 | **M6** Three-state verdict with printed reasoning | ✅ real (tested) |
@@ -578,15 +578,22 @@ classes" returned 393 Wine instances and **zero Handgun**. Sourced from the `tes
 `validation` splits (the `train` split needs ~7 GB of metadata before a single image);
 `test` is the larger, so it feeds training.
 
-**Run 2 is trained and shipped** (`models/risk_yolov8.pt`; run 1 kept as
-`risk_yolov8.prev.pt`). 40 epochs @ 640 px on a free Colab T4, ~20 minutes against
-10.8 hours on CPU. mAP@50 0.566 → **0.591**, precision +0.046, and `Handgun` — the
-weakest and most consequential class — 0.487 → **0.546**. Two caveats are recorded in
-`RESULTS.md` rather than buried: mAP@50-95 *fell* (0.432 → 0.396, looser boxes, the
-price of the deliberate `scale=0.75` jitter), and on the one real clip available for
-an A/B it produced **half as many detections** as run 1 at the same threshold despite
-scoring higher recall on photographs. Reproduce with `training/package_for_colab.py`
-then `training/colab_train.ipynb`.
+**Run 2 was trained and rejected — the most instructive result in the project.** 40
+epochs @ 640 px on a free Colab T4, ~20 minutes against 10.8 hours on CPU. It improved
+*every* headline metric: mAP@50 0.566 → 0.591, precision +0.046, recall +0.018, and
+`Handgun` — the weakest and most consequential class — 0.487 → **0.546**.
+
+Then it was tested on the clip that prompted the retrain, and **detected the pistol
+zero times where run 1 found it 13 times**. With no threshold at all, its strongest
+response on those frames was `Beer` at 0.464; every weapon class collapsed below 0.12.
+Run 1 is restored as `models/risk_yolov8.pt`; run 2 is kept as `risk_yolov8.run2.pt`.
+
+The likely cause is a change made *to help*: `scale=0.75`, set well above the 0.5
+default precisely because the earlier failure looked like a scale problem. Aggressive
+jitter plus 40 epochs appears to have specialised the model onto Open Images'
+photographic domain rather than generalising it. A third run should revert `scale` and
+change one thing at a time. Full comparison in `RESULTS.md`; reproduce with
+`training/package_for_colab.py` then `training/colab_train.ipynb`.
 
 **Current class set: 11** (1,508 train / 488 val images), revised after run 1 —
 `Wine` dropped for ambiguity, `Kitchen knife` and `Bow and arrow` added, `Axe` and
@@ -695,6 +702,12 @@ position, not timidity.
 - *"So your weapon detector doesn't detect weapons?"* — it detects them at 0.487 mAP on
   photographs and failed on compressed video of a partly-occluded one until the
   inference resolution was fixed. A **measured domain-shift result**, not a mystery.
+- *"Did retraining help?"* — **no, and that is the most useful thing measured.** Run 2
+  beat run 1 on mAP@50, precision, recall and on `Handgun` specifically, then detected
+  the ATF pistol zero times where run 1 found it 13. It was rejected on that evidence
+  and run 1 restored. A validation set drawn from the training distribution cannot
+  tell you whether a model works; only video can. Be ready to say which single change
+  probably caused it (`scale=0.75`) and what a third run would do differently.
 - *"Why does it say 'Handheld weapon' instead of the object?"* — because the category is
   reliable and the class is not; the raw class is printed beneath. Claiming "Knife" as
   fact would assert precision never measured.
