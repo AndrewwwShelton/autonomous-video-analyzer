@@ -77,6 +77,7 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
 # created by an earlier version -- the app would then fail on every read of it.
 _MIGRATIONS = [
     ("VideoMetadata", "overlay_context", "TEXT"),
+    ("VisualFlags", "detection_model", "TEXT"),
 ]
 
 

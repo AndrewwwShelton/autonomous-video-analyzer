@@ -89,10 +89,11 @@ def insert_visual_flags(video_id: int, flags: list[dict], db_path: Path | None =
     with get_connection(db_path) as conn:
         conn.executemany(
             "INSERT INTO VisualFlags (video_id, frame_timestamp, object_detected, "
-            "bounding_box_json, confidence_score, risk_category) VALUES (?, ?, ?, ?, ?, ?)",
+            "bounding_box_json, confidence_score, risk_category, detection_model) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             [(video_id, f["frame_timestamp"], f["object_detected"],
               json.dumps(f["bounding_box"]), f["confidence_score"],
-              f.get("risk_category")) for f in flags],
+              f.get("risk_category"), f.get("detection_model")) for f in flags],
         )
 
 

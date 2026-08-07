@@ -6,6 +6,20 @@ import Timeline from "../components/Timeline";
 
 const TABS = ["Audio flags", "Visual risks", "Ad spots"];
 
+/** Demo engines all carry "demo" in the name they record against each finding. */
+const isDemoEngine = (model) => !!model && model.toLowerCase().includes("demo");
+
+/** True when any engine that produced these findings was a stand-in.
+ *  Checked across every source, so a partly-demo run is still called out. */
+function isDemoAnalysis(flags) {
+  const models = [
+    ...(flags.audio ?? []).map((f) => f.detection_model),
+    ...(flags.visual ?? []).map((f) => f.detection_model),
+    flags.assessment?.overlay?.reason,
+  ];
+  return models.some(isDemoEngine);
+}
+
 export default function VideoDetailPage({ toast }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -74,6 +88,21 @@ export default function VideoDetailPage({ toast }) {
       ) : (
         <div className="detail-grid">
           <div>
+            {isDemoAnalysis(flags) && (
+              <div className="demo-banner" role="alert">
+                <span className="material-symbols-outlined" aria-hidden="true">science</span>
+                <div>
+                  <b>These findings are demo output — nothing in this video was analysed.</b>
+                  <p>
+                    Demo mode invents plausible events at fixed points in the runtime
+                    without opening a single frame, so the objects listed below bear no
+                    relation to what is on screen. Switch <b>Settings → Analysis mode</b> to
+                    <b> real</b> and run the checks again to analyse the actual footage.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {flags.assessment?.reason && (
               <div className={`verdict-note verdict-note--${flags.verdict?.toLowerCase()}`}
                    role="note">
@@ -190,7 +219,7 @@ function VisualTable({ rows, onSeek }) {
   return (
     <div className="table-scroll">
     <table className="vtable">
-      <thead><tr><th>At</th><th>Object</th><th>Category</th><th>Confidence</th><th>Bounding box</th></tr></thead>
+      <thead><tr><th>At</th><th>Object</th><th>Category</th><th>Confidence</th><th>Bounding box</th><th>Model</th></tr></thead>
       <tbody>
         {rows.map((f) => (
           <tr key={f.visual_flag_id}>
@@ -207,6 +236,9 @@ function VisualTable({ rows, onSeek }) {
             </td>
             <td style={{ color: "var(--ink-2)", fontFamily: "monospace", fontSize: 12 }}>
               {f.bounding_box_json}
+            </td>
+            <td className={isDemoEngine(f.detection_model) ? "cell-demo" : undefined}>
+              {f.detection_model ?? "—"}
             </td>
           </tr>
         ))}

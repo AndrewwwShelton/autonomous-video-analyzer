@@ -10,6 +10,7 @@ that produced each result, so a caller can never mistake demo output for real ou
 What stays REAL in every mode: the database layer, the compliance matcher, and the
 temporal ad-spot tracker. Demo engines only stand in for model inference.
 """
+import os
 import traceback
 from pathlib import Path
 from typing import Callable
@@ -49,7 +50,11 @@ def _run_audio_stage(video: dict, demo: bool, report: ProgressCallback) -> tuple
         engine = transcriber.name
 
         report("Extracting audio track", 0.05)
-        wav_path = config.DATA_DIR / "audio" / f"video_{video_id}.wav"
+        # Unique per process. A fixed path meant two analyses of the same video --
+        # the server's and a script run against the same database -- collided on
+        # one scratch file, and whichever finished first deleted it in its
+        # `finally`, leaving the other transcribing a path that no longer existed.
+        wav_path = config.DATA_DIR / "audio" / f"video_{video_id}_{os.getpid()}.wav"
         try:
             extract_audio(Path(video["filepath"]), wav_path)
         except NoAudioTrackError:
@@ -111,7 +116,7 @@ def _run_vision_stage(video: dict, demo: bool,
     for i, (timestamp, frame) in enumerate(sample_frames(Path(video["filepath"]),
                                                          sample_fps)):
         detections = detector.detect_frame(frame, timestamp)
-        flags += to_risk_flags(detections)
+        flags += to_risk_flags(detections, detection_model=detector.name)
         frames_candidates.append((timestamp, find_ad_spot_candidates(frame, detections)))
         overlay.add(frame)
         if i % 5 == 0:

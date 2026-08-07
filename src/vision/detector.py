@@ -153,8 +153,14 @@ class YoloDetector:
         return "yolo:" + "+".join(Path(w).stem for w in self.weights)
 
 
-def to_risk_flags(detections: list[Detection]) -> list[dict]:
-    """Keep only detections that map to a risk category; shape them for VisualFlags."""
+def to_risk_flags(detections: list[Detection],
+                  detection_model: str | None = None) -> list[dict]:
+    """Keep only detections that map to a risk category; shape them for VisualFlags.
+
+    `detection_model` is recorded per flag, as AudioFlags has always done. Without
+    it a demo detection -- invented at a fixed fraction of the duration, touching
+    no pixels -- was indistinguishable from a measured one in the interface.
+    """
     flags = []
     for d in detections:
         category = normalise_label(d.label)
@@ -166,6 +172,7 @@ def to_risk_flags(detections: list[Detection]) -> list[dict]:
             "bounding_box": d.box,
             "confidence_score": d.confidence,
             "risk_category": category,
+            "detection_model": detection_model,
         })
     return flags
 
@@ -258,5 +265,9 @@ class DemoDetector:
                 "bounding_box": [x1, y1, min(x1 + w, width), min(y1 + h, height)],
                 "confidence_score": round(conf + rng.uniform(-0.05, 0.05), 3),
                 "risk_category": normalise_label(label),
+                # Stamped so the interface can say plainly that nothing was
+                # looked at. These events are placed at fixed fractions of the
+                # duration and have no relationship to the footage.
+                "detection_model": self.name,
             })
         return flags

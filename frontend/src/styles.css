@@ -238,6 +238,21 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 .mon--none { color: var(--ink-3); }
 .mon__label { color: var(--ink); }
 
+/* Demo-run warning. Stated at the top of the page, not buried inside a sentence:
+   a real news clip analysed in demo mode was read as a genuine misclassification,
+   because invented findings are indistinguishable from measured ones once they
+   reach a table. */
+.demo-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 14px; margin-bottom: 16px;
+  border: 1px solid var(--mon-yellow); border-radius: 12px;
+  background: color-mix(in srgb, var(--mon-yellow) 10%, transparent);
+}
+.demo-banner p { color: var(--ink-2); font-size: 13px; margin-top: 3px; }
+.demo-banner b { font-size: 13px; color: var(--ink); }
+.demo-banner .material-symbols-outlined { font-size: 20px; color: var(--mon-yellow); }
+.cell-demo { color: var(--mon-yellow); font-weight: 500; }
+
 /* Verdict explanation. The reasoning is shown, not hidden behind a tooltip:
    the binary rule this replaced gave no account of itself, and an unexplained
    "Restricted" is exactly the creator complaint the project is built around. */

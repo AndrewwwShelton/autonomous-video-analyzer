@@ -133,7 +133,8 @@ def test_only_risk_detections_become_flags():
 
 
 def test_flag_shape_matches_the_repository_contract():
-    flags = to_risk_flags([det("knife", conf=0.77, box=[10, 20, 30, 40], ts=12.5)])
+    flags = to_risk_flags([det("knife", conf=0.77, box=[10, 20, 30, 40], ts=12.5)],
+                          detection_model="yolo:yolov8n")
     f = flags[0]
     assert f == {
         "frame_timestamp": 12.5,
@@ -141,7 +142,20 @@ def test_flag_shape_matches_the_repository_contract():
         "bounding_box": [10, 20, 30, 40],
         "confidence_score": 0.77,
         "risk_category": "Weapon",
+        "detection_model": "yolo:yolov8n",
     }
+
+
+def test_demo_detections_are_labelled_as_demo():
+    """Provenance per flag, as AudioFlags has always carried.
+
+    Without it, demo detections -- invented at fixed fractions of the runtime,
+    touching no pixels -- were indistinguishable from measured ones in the
+    interface. A real news clip analysed in demo mode was reported as a genuine
+    misclassification because of exactly this gap.
+    """
+    for f in DemoDetector(seed=3).detect(40.0, 1280, 720):
+        assert "demo" in f["detection_model"].lower(), f
 
 
 def test_no_detections_yields_no_flags():
@@ -181,7 +195,7 @@ def test_demo_detector_emits_the_same_flag_shape():
     assert flags
     for f in flags:
         assert set(f) == {"frame_timestamp", "object_detected", "bounding_box",
-                          "confidence_score", "risk_category"}
+                          "confidence_score", "risk_category", "detection_model"}
         assert f["risk_category"] in ("Weapon", "Substance", "Graphic")
 
 

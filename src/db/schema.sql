@@ -39,7 +39,12 @@ CREATE TABLE IF NOT EXISTS VisualFlags (
     object_detected     TEXT NOT NULL,
     bounding_box_json   TEXT NOT NULL,
     confidence_score    REAL NOT NULL,
-    risk_category       TEXT CHECK (risk_category IN ('Weapon','Substance','Graphic'))
+    risk_category       TEXT CHECK (risk_category IN ('Weapon','Substance','Graphic')),
+    -- Which engine produced this, mirroring AudioFlags. Its absence was a real
+    -- failure: demo detections are invented at fixed fractions of the duration
+    -- and looked identical to measured ones in the interface, so a demo run on a
+    -- real news clip read as a genuine misclassification.
+    detection_model     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS AdSpots (
