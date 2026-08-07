@@ -37,4 +37,7 @@ benchmark/.scratch/
 # Training: datasets, runs and the isolated env are large/derived
 datasets/
 training/runs/
+# Colab upload bundle: 122 MB, regenerate with training/package_for_colab.py
+training/risk_dataset_colab.zip
+training/_colab_stage/
 .venv-data/
