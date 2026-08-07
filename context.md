@@ -38,9 +38,9 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 
 | | |
 |---|---|
-| Python (src + backend) | ~3,320 lines |
-| Frontend (jsx/js/css) | ~2,290 lines |
-| Tests | **142 passing** across 11 files |
+| Python (src + backend) | ~3,630 lines |
+| Frontend (jsx/js/css) | ~2,350 lines |
+| Tests | **157 passing** across 11 files |
 | Screens | 7, responsive over 4 breakpoints, light + dark |
 | REST endpoints | 15 |
 | Stage deliverables | Synopsis · SRS · DDD · UID — all submitted |
@@ -64,6 +64,7 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 | **M5 Reports** | Formatted **PDF** compliance report with drawn timeline |
 | **Branding** | Original logo replacing a YouTube-derived mark |
 | **M6 Overlay context ★** | **Persistent-overlay detection** + a three-state verdict, so rendered weapons stop restricting gameplay footage |
+| **M7 Real-video hardening** | Multi-scale detection, grouped finding names, per-flag provenance, relative overlay stability — all driven by testing four real clips |
 
 Milestones were deliberately not built in numeric order. M4 came early because the UID
 document needed a real interface to photograph; M3b was promoted from "optional" once
@@ -74,6 +75,12 @@ is Call of Duty, and the guns are in the game, does the tool flag it?* It did �
 weapon detection in one frame of a ten-minute video was enough. That is the same
 context-blind over-flagging `Project_Justification.docx` criticises YouTube for, which
 made it worth stopping to fix rather than noting as future work.
+
+**M7 was not planned either, and mattered more.** Until then everything had been
+verified on synthetic footage. Four real clips were then run through the tool, and
+**every one of them broke something** — see §18 for the table. Nothing about the
+architecture changed; what changed was a set of defaults and thresholds that were
+quietly wrong for real video and invisible on generated video.
 
 ---
 
@@ -148,7 +155,7 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 | Audio extraction → 16 kHz mono WAV (bundled ffmpeg) | ✅ real |
 | Frame sampler + thumbnailer (OpenCV, seek-based) | ✅ real |
 | **M1** Speech-to-text (faster-whisper, word timestamps) | ✅ real |
-| **M2** Visual risk detection (COCO + fine-tune, 13 labels) | ✅ real |
+| **M2** Visual risk detection (COCO + fine-tune, multi-scale) | ✅ real |
 | **M3a** Ad-spot free-space algorithm ★ | ✅ real (tested) |
 | **M3b** Fine-tuned risk model (Open Images, mAP@50 0.566) | ✅ real |
 | **M5** CSV / JSON / PDF export + `AuditReports` archive | ✅ real (tested) |
@@ -161,7 +168,7 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 
 ### Honesty guards (deliberate — do not remove)
 
-Five places where the system refuses to let demo, thin, or unexplained evidence pass
+Seven places where the system refuses to let demo, thin, or unexplained evidence pass
 as real:
 
 1. **Run summary** names the engine behind each stage (`faster-whisper-base.en`,
@@ -176,6 +183,14 @@ as real:
 5. **Every verdict states its reasoning**, on screen and in the PDF. An unexplained
    "Restricted" is precisely the creator complaint this project is built around, so the
    tool is not permitted to issue one.
+6. **Every visual flag records the engine that produced it**, shown beside the audio
+   one. Added after a real failure: a news clip analysed in demo mode produced invented
+   findings that were indistinguishable from measured ones in the table, and were
+   reasonably read as genuine misclassifications. A demo run now also opens the page
+   with a banner saying outright that nothing was analysed.
+7. **Findings are named at the confidence the evidence supports** — "Handheld weapon",
+   not "Knife" — with the model's own class kept visible beneath so a wrong *grouping*
+   stays distinguishable from a wrong *detection*.
 
 ---
 
@@ -222,9 +237,9 @@ filmed footage does that.
 
 Two measurements, in `src/vision/overlay.py`:
 
-1. **Per-pixel temporal variance** — overlay pixels barely change. Accumulated
-   streaming (running sum and sum-of-squares), so memory is independent of video
-   length: a 1-hour video costs the same ~1 MB as a 30-second one.
+1. **Per-pixel temporal variance** — overlay pixels are markedly steadier than the
+   scene. Accumulated streaming (running sum and sum-of-squares), so memory is
+   independent of video length: a 1-hour video costs the same ~1 MB as a 30-second one.
 2. **Edges surviving in the temporal mean** — the discriminating step. A static overlay
    stays *sharp* under averaging because it lands on the same pixels every frame;
    moving content blurs away. A crisp edge at a pixel that barely varies is drawn, not
@@ -232,6 +247,17 @@ Two measurements, in `src/vision/overlay.py`:
 
 Neither alone suffices, and each prevents a specific failure: variance alone flags
 letterbox bars and tripod shots; edges alone flag every still object in a static scene.
+
+**Stability is relative, not absolute — and that took real gameplay to learn.** The
+first version demanded a per-pixel standard deviation ≤ 4.0. Tested on genuine
+Counter-Strike footage it found *nothing*: 0.04% coverage against a 1% threshold, so a
+video with a minimap, health bar and ammo counter on screen throughout was treated as
+real and restricted. A real HUD is **semi-transparent**, so the moving scene shows
+through it, and its contents change as ammo counts down and radar dots move. The 1st
+percentile of per-pixel variance on that clip was 6.19 — above the threshold — and only
+0.32% of the frame qualified as static. The threshold is now the looser of the absolute
+floor and the frame's own **10th percentile**, so an overlay need only be steadier than
+what is behind it.
 
 It is the **third consumer of the same decoded frame** (decision D4), so it adds a
 running sum per frame rather than a second pass over the file.
@@ -252,6 +278,19 @@ context. The exemption is narrow by design, each limit pinned by a test:
 - a **single** region is a watermark, not evidence of rendered content;
 - `inconclusive` never reads as "it is a game".
 
+**Validated against real gameplay**, which was an open question when the module landed:
+
+| Clip | motion | coverage | verdict |
+|---|---|---|---|
+| Counter-Strike capture (real) | 97% | 3.49%, 8 regions | `overlay` → **Review** |
+| ATF news clip (filmed, moving camera) | 79% | 0.00% | `none` |
+| locked-off demo footage | 13% | — | `inconclusive` (motion gate) |
+| synthetic gameplay clip | 52% | 7.87%, 5 regions | `overlay` |
+
+The negative rows matter as much as the positive one: a detector that called everything
+an overlay would dismiss genuine weapon footage as gameplay, which is worse than the
+over-flagging it replaced.
+
 ---
 
 ## 8. Data model (6 tables, 3NF — per DDD)
@@ -260,20 +299,23 @@ context. The exemption is narrow by design, each limit pinned by a test:
   (`pending`/`processing`/`completed`/`failed`), **overlay_context** (JSON)
 - **AudioFlags** — timestamps, word_flagged, transcript_context, severity, detection_model
 - **VisualFlags** — frame_timestamp, object_detected, bounding_box_json, confidence,
-  risk_category (Weapon/Substance/Graphic)
+  risk_category (Weapon/Substance/Graphic), **detection_model**
 - **AdSpots** — timestamps, spot_type, bounding_box_json, area_pixels, suitability_score
 - **AuditReports** — generation_timestamp, report_type (CSV/JSON/PDF), file_path, totals,
   compliance_status
 - **SystemConfig** (singleton) — profanity dictionary, frame_sample_fps,
   min_ad_spot_duration_sec, detection_confidence_threshold, whisper_model,
-  **analysis_mode**, **vision_weights**
+  **analysis_mode**, **vision_weights**, **detection_max_imgsz**
 
 Children cascade on delete. Boxes stored as JSON `[x1, y1, x2, y2]`.
 
-`overlay_context` is the one **extension to the DDD schema** (M6). It is added by a
-migration in `connection.py`, not just to `schema.sql`: `CREATE TABLE IF NOT EXISTS`
-silently does nothing when the table already exists, so a new column would never reach
-a database made by an earlier build.
+`overlay_context` and `VisualFlags.detection_model` are the **extensions to the DDD
+schema** (M6/M7). Both are added by migrations in `connection.py`, not just to
+`schema.sql`: `CREATE TABLE IF NOT EXISTS` silently does nothing when the table already
+exists, so a new column would never reach a database made by an earlier build. The same
+mechanism upgrades the keyword dictionary — but only where it exactly matches the
+original nine words, since silently discarding a curated list would be worse than
+leaving it stale.
 
 **Compliance verdict** (`orchestrator.assess_compliance`), in order:
 
@@ -359,7 +401,7 @@ specproj/
 │
 ├── training/             download_dataset.py · prune_classes.py · train.py · RESULTS.md
 ├── docs/UID/main.tex · docs/screens/ (14 captures) · docs/SCREENSHOT_CHECKLIST.md
-├── tests/                142 tests across 11 files
+├── tests/                157 tests across 11 files
 ├── data/ · models/ · datasets/ · .venv-data/        gitignored
 ```
 
@@ -437,6 +479,34 @@ The lesson is about where effort pays. The dictionary is the **cheapest lever in
 the system** and the only one that covers what the vision model misses; widening it
 to real firearms, violence and substance vocabulary caught this clip on the audio
 path (`Restricted`, 2 high-severity terms) while the expensive model stayed blind.
+
+**The weapon detector was not blind — the weapon was being shrunk.** The finding above
+looked like a dead end for the whole vision module. It was not. Ultralytics infers at
+640 px by default, which halves 720p footage and puts a pistol at arm's length below
+what YOLOv8n can resolve; cropping the pistol and running it alone fired immediately.
+Raising the resolution then fixed that clip and **broke a second one**, a review video
+with the pistol filling the frame:
+
+| imgsz | distant pistol | close-up pistol |
+|---|---|---|
+| 640 | **0 flags** | 10 flags |
+| 960 | 1 | 4 |
+| 1280 | 13 | 1 |
+| 1600 | 15 | **0 flags** |
+
+The relationship is **inverted**, so no single resolution serves both — the fine-tune
+was trained at 512 px, so shrink the frame and a distant weapon vanishes, enlarge it and
+a near one grows past any scale the model saw. Detection therefore runs at **two
+scales** and merges, which recovers both (0→13 and 10→10). It costs roughly double the
+inference time; that is the honest price of the recall.
+
+**The label is unreliable even when the category is right.** The same pistol came back
+as `Knife` in one clip and `Rifle` in another — correct category twice, correct class
+neither time. Findings are therefore reported as **"Handheld weapon"** with the raw
+class shown beneath, in the interface and the PDF. The compliance verdict was always
+driven by the category, never the class name, so nothing about the logic changed —
+only what it claims out loud. `bottle` stays "Drink container" rather than "Alcohol",
+because COCO's bottle is as often water.
 
 **Two overlay false positives, both found by measuring rather than reasoning.**
 *Letterbox bars*: perfectly stationary, and the boundary where they meet the picture
@@ -532,7 +602,7 @@ npm run dev --prefix frontend            # → http://localhost:5173
 2-video library, then double-click `RUN_DEMO.bat`. Stop the server before re-running
 `demo_setup.py` — it cannot delete an open database.
 
-**Tests:** `python -m pytest tests/ -q` (142 passing).
+**Tests:** `python -m pytest tests/ -q` (157 passing).
 
 **Demo vs real:** Settings → Analysis engines. `demo` needs no weights and is instant —
 the safer choice in front of a panel. `real` runs the models.
@@ -587,6 +657,20 @@ verdict is exactly the flaw the project criticises YouTube for, and it was repro
 before it was noticed. Say so; it is far stronger than pretending the design was right
 from the start.
 
+**The second-best story: every real video broke something, and the breakages were
+instructive.** Four clips were tested, and none behaved as expected.
+
+| Clip | What it exposed |
+|---|---|
+| ATF news (demo mode) | Invented findings looked identical to measured ones — no provenance on visual flags |
+| ATF news (real mode) | Weapon undetected: 640 px inference shrank it below resolvable. Whisper was perfect; the *dictionary* held nine words |
+| Umarex review | Raising resolution to fix the above **broke this one** — the relationship is inverted |
+| Counter-Strike | Real HUDs are translucent and change, so the absolute variance gate found nothing |
+
+Each was fixed at the layer where fixing was cheap, and the cheapest lever — the
+keyword dictionary — turned out to catch what the expensive model missed. That is a
+better engineering narrative than a system that worked first time.
+
 **Also defensible.** The honesty guards (§6): the system refuses to let demo output, a
 four-event sample, or an unexplained verdict pass as a result. A deliberate engineering
 position, not timidity.
@@ -594,13 +678,19 @@ position, not timidity.
 **Expect to be asked.**
 
 - *"How did you get the accuracy figure?"* — the weak point until clips are labelled.
-- *"Does the overlay detector work on real gameplay?"* — **unknown.** The demonstrator
-  clip is drawn to match the very signal the detector looks for, so it proves the code
-  runs, not that the thresholds hold against real Call of Duty. Validating that needs
-  real captures, which this project does not have and cannot lawfully redistribute.
-  Stated in `benchmark/make_gameplay_clip.py`; do not overclaim it.
-- *"What else triggers it?"* — a channel watermark, a news lower-third, a donation bar.
-  It detects **overlays**, not games; gameplay is an inference from the evidence.
+- *"Does the overlay detector work on real gameplay?"* — **yes, now measured.** A real
+  Counter-Strike capture reports `overlay` at 3.49% coverage over 8 regions and comes
+  back `Review`, while filmed footage stays at 0.00%. It did **not** work on the first
+  attempt, and saying so is the stronger answer (§7b).
+- *"So your weapon detector doesn't detect weapons?"* — it detects them at 0.487 mAP on
+  photographs and failed on compressed video of a partly-occluded one until the
+  inference resolution was fixed. A **measured domain-shift result**, not a mystery.
+- *"Why does it say 'Handheld weapon' instead of the object?"* — because the category is
+  reliable and the class is not; the raw class is printed beneath. Claiming "Knife" as
+  fact would assert precision never measured.
+- *"What else triggers the overlay detector?"* — a channel watermark, a news
+  lower-third, a donation bar. It detects **overlays**, not games; gameplay is an
+  inference from the evidence.
 - Model provenance and licensing (§12), and why smoking is not covered.
 
 **Do not overclaim.** Coverage is partial and the interface says so. Partial coverage,
