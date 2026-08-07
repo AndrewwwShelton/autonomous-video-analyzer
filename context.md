@@ -59,12 +59,13 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 | **M1 Audio** | Real speech-to-text via **faster-whisper**, word-level timestamps |
 | **Benchmark harness** | Scoring, matching rules, CLI, honesty guards — plus intake/labelling/coverage tooling |
 | **M2 Vision** | Real detection: COCO YOLOv8 + label normalisation + coverage reporting |
-| **M3b Fine-tune** *(promoted)* | Own risk model trained on Open Images V7 — **mAP@50 0.566** |
+| **M3b Fine-tune** *(promoted)* | Own risk model trained on Open Images V7 — run 1 **mAP@50 0.566** |
 | **M3a Ad-spots ★** | The **free-space algorithm** — the project's novel contribution |
 | **M5 Reports** | Formatted **PDF** compliance report with drawn timeline |
 | **Branding** | Original logo replacing a YouTube-derived mark |
 | **M6 Overlay context ★** | **Persistent-overlay detection** + a three-state verdict, so rendered weapons stop restricting gameplay footage |
 | **M7 Real-video hardening** | Multi-scale detection, grouped finding names, per-flag provenance, relative overlay stability — all driven by testing four real clips |
+| **M3b run 2** | Retrained on a Colab T4: 40 epochs @ 640 px, 11 classes — **mAP@50 0.591**, Handgun 0.487 → 0.546 |
 
 Milestones were deliberately not built in numeric order. M4 came early because the UID
 document needed a real interface to photograph; M3b was promoted from "optional" once
@@ -157,7 +158,7 @@ mode**, which needs no model weights and is the safer choice for a live demonstr
 | **M1** Speech-to-text (faster-whisper, word timestamps) | ✅ real |
 | **M2** Visual risk detection (COCO + fine-tune, multi-scale) | ✅ real |
 | **M3a** Ad-spot free-space algorithm ★ | ✅ real (tested) |
-| **M3b** Fine-tuned risk model (Open Images, mAP@50 0.566) | ✅ real |
+| **M3b** Fine-tuned risk model (Open Images, mAP@50 0.591) | ✅ real |
 | **M5** CSV / JSON / PDF export + `AuditReports` archive | ✅ real (tested) |
 | **M6** Persistent-overlay detection ★ | ✅ real (tested) |
 | **M6** Three-state verdict with printed reasoning | ✅ real (tested) |
@@ -577,14 +578,23 @@ classes" returned 393 Wine instances and **zero Handgun**. Sourced from the `tes
 `validation` splits (the `train` split needs ~7 GB of metadata before a single image);
 `test` is the larger, so it feeds training.
 
+**Run 2 is trained and shipped** (`models/risk_yolov8.pt`; run 1 kept as
+`risk_yolov8.prev.pt`). 40 epochs @ 640 px on a free Colab T4, ~20 minutes against
+10.8 hours on CPU. mAP@50 0.566 → **0.591**, precision +0.046, and `Handgun` — the
+weakest and most consequential class — 0.487 → **0.546**. Two caveats are recorded in
+`RESULTS.md` rather than buried: mAP@50-95 *fell* (0.432 → 0.396, looser boxes, the
+price of the deliberate `scale=0.75` jitter), and on the one real clip available for
+an A/B it produced **half as many detections** as run 1 at the same threshold despite
+scoring higher recall on photographs. Reproduce with `training/package_for_colab.py`
+then `training/colab_train.ipynb`.
+
 **Current class set: 11** (1,508 train / 488 val images), revised after run 1 —
 `Wine` dropped for ambiguity, `Kitchen knife` and `Bow and arrow` added, `Axe` and
 `Syringe` requested but unlearnable from these splits (§12). `train.py` preserves the
 previous weights as `risk_yolov8.prev.pt` and never reuses a run directory, so a worse
 run cannot cost you a working model or overwrite the artefacts `RESULTS.md` cites.
 
-Results (run 1, 10 classes): `training/RESULTS.md`. **Run 2 is prepared but not
-trained** — worth doing on a GPU (~20 min at 40 epochs) rather than CPU (14–16 h).
+Results for both runs, with the per-class comparison: `training/RESULTS.md`.
 
 ---
 
