@@ -78,3 +78,48 @@ def test_cascade_delete(db):
         "word_flagged": "x", "severity": "Low"}], db_path=db)
     repo.delete_video(vid, db_path=db)
     assert repo.get_audio_flags(vid, db_path=db) == []
+
+
+# --------------------------------------------- dictionary upgrade migration
+
+def _dict_words(db):
+    return {e["word"].lower() for e in repo.get_config("profanity_dictionary", db_path=db)}
+
+
+def test_untouched_dictionary_is_upgraded_in_place(db, tmp_path):
+    """Config seeds with INSERT OR IGNORE, so a widened vocabulary would never
+    reach an existing library — the only place it matters."""
+    import json
+    from src.db.connection import (_ORIGINAL_DICTIONARY_WORDS, get_connection,
+                                   init_db)
+    with get_connection(db) as conn:
+        conn.execute(
+            "UPDATE SystemConfig SET config_value = ? WHERE config_key = 'profanity_dictionary'",
+            (json.dumps([{"word": w, "severity": "Low"}
+                         for w in sorted(_ORIGINAL_DICTIONARY_WORDS)]),))
+    init_db(db)
+    words = _dict_words(db)
+    assert "semi automatic" in words and "fully auto" in words, words
+    assert len(words) > len(_ORIGINAL_DICTIONARY_WORDS)
+
+
+def test_a_customised_dictionary_is_never_overwritten(db):
+    """Silently discarding somebody's curated list is worse than leaving it stale."""
+    import json
+    from src.db.connection import get_connection, init_db
+    mine = [{"word": "sponsorname", "severity": "High"}]
+    with get_connection(db) as conn:
+        conn.execute(
+            "UPDATE SystemConfig SET config_value = ? WHERE config_key = 'profanity_dictionary'",
+            (json.dumps(mine),))
+    init_db(db)
+    assert _dict_words(db) == {"sponsorname"}
+
+
+def test_firearms_vocabulary_covers_how_people_actually_speak(db):
+    """Regression from a real clip: an ATF firing-range video transcribed cleanly
+    as "this is semi-automatic ... pull of the trigger ... fully auto" and matched
+    nothing, because the list held only profanity plus three risk words."""
+    words = _dict_words(db)
+    for phrase in ("semi automatic", "fully auto", "trigger", "gunshot"):
+        assert phrase in words, f"{phrase!r} missing from the default dictionary"

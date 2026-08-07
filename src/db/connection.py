@@ -33,17 +33,60 @@ def _default_config() -> list[tuple[str, str, str, str]]:
     return [
         ("profanity_dictionary",
          json.dumps([
-             {"word": "damn",       "severity": "Low"},
-             {"word": "hell",       "severity": "Low"},
-             {"word": "crap",       "severity": "Low"},
-             {"word": "piss",       "severity": "Medium"},
-             {"word": "bastard",    "severity": "Medium"},
-             {"word": "drugs",      "severity": "Medium"},
-             {"word": "gun",        "severity": "High"},
-             {"word": "kill",       "severity": "High"},
-             {"word": "weapon",     "severity": "High"},
+             # --- Profanity -------------------------------------------------
+             {"word": "damn",           "severity": "Low"},
+             {"word": "hell",           "severity": "Low"},
+             {"word": "crap",           "severity": "Low"},
+             {"word": "piss",           "severity": "Medium"},
+             {"word": "bastard",        "severity": "Medium"},
+             # --- Firearms --------------------------------------------------
+             # Added after a real test: an ATF firing-range clip transcribed
+             # cleanly as "this is semi-automatic ... a single pull of the
+             # trigger ... turning it on fully auto" and matched NOTHING,
+             # because the list held only profanity plus three risk words.
+             # Advertiser guidelines treat firearms *discussion* as restricted,
+             # so the vocabulary has to cover how people actually talk about
+             # them, not just the word "gun".
+             {"word": "gun",            "severity": "High"},
+             {"word": "guns",           "severity": "High"},
+             {"word": "handgun",        "severity": "High"},
+             {"word": "firearm",        "severity": "High"},
+             {"word": "pistol",         "severity": "High"},
+             {"word": "rifle",          "severity": "High"},
+             {"word": "shotgun",        "severity": "High"},
+             {"word": "weapon",         "severity": "High"},
+             {"word": "ammunition",     "severity": "Medium"},
+             {"word": "ammo",           "severity": "Medium"},
+             {"word": "magazine clip",  "severity": "Medium"},
+             {"word": "semi automatic", "severity": "High"},
+             {"word": "semi-automatic", "severity": "High"},
+             {"word": "fully auto",     "severity": "High"},
+             {"word": "full auto",      "severity": "High"},
+             {"word": "automatic weapon", "severity": "High"},
+             {"word": "silencer",       "severity": "High"},
+             {"word": "suppressor",     "severity": "Medium"},
+             {"word": "trigger",        "severity": "Low"},
+             {"word": "gunshot",        "severity": "High"},
+             {"word": "gunfire",        "severity": "High"},
+             # --- Violence --------------------------------------------------
+             {"word": "kill",           "severity": "High"},
+             {"word": "killed",         "severity": "High"},
+             {"word": "murder",         "severity": "High"},
+             {"word": "shooting",       "severity": "High"},
+             {"word": "stabbed",        "severity": "High"},
+             {"word": "assault",        "severity": "Medium"},
+             # --- Substances ------------------------------------------------
+             {"word": "drugs",          "severity": "Medium"},
+             {"word": "cocaine",        "severity": "High"},
+             {"word": "heroin",         "severity": "High"},
+             {"word": "meth",           "severity": "High"},
+             {"word": "overdose",       "severity": "Medium"},
+             {"word": "vape",           "severity": "Low"},
+             {"word": "cigarette",      "severity": "Low"},
          ]),
-         "json", "Restricted keyword dictionary matched against the transcript"),
+         "json", "Restricted keyword dictionary matched against the transcript. "
+                 "Editable in Settings -- it is the cheapest lever in the system, "
+                 "and the only one that covers risks the vision model misses"),
         ("frame_sample_fps", str(config.DEFAULT_FRAME_SAMPLE_FPS), "float",
          "Frames per second sampled from video for vision analysis (SRS FR3)"),
         ("min_ad_spot_duration_sec", str(config.DEFAULT_MIN_AD_SPOT_SEC), "float",
@@ -86,6 +129,43 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    _upgrade_untouched_dictionary(conn)
+
+
+# The original seed: profanity plus three risk words. Kept so an existing database
+# can be recognised as never having been edited.
+_ORIGINAL_DICTIONARY_WORDS = {
+    "damn", "hell", "crap", "piss", "bastard", "drugs", "gun", "kill", "weapon",
+}
+
+
+def _upgrade_untouched_dictionary(conn: sqlite3.Connection) -> None:
+    """Replace the old nine-word list, but only where nobody has edited it.
+
+    Config is seeded with INSERT OR IGNORE, so an existing database keeps whatever
+    it already had — meaning the widened firearms vocabulary would never reach the
+    one place it matters: a library someone has been using. But the dictionary is
+    user-editable, and silently overwriting somebody's curated list would be worse
+    than leaving it stale. Upgrading only an exact, unmodified match of the
+    original resolves both.
+    """
+    row = conn.execute(
+        "SELECT config_value FROM SystemConfig WHERE config_key = 'profanity_dictionary'"
+    ).fetchone()
+    if row is None:
+        return
+    try:
+        current = {str(e.get("word", "")).lower() for e in json.loads(row[0])}
+    except (TypeError, ValueError):
+        return                      # hand-edited into something unparseable; leave it
+    if current != _ORIGINAL_DICTIONARY_WORDS:
+        return                      # customised — the user's list wins
+
+    default = next(c for c in _default_config() if c[0] == "profanity_dictionary")
+    conn.execute(
+        "UPDATE SystemConfig SET config_value = ? WHERE config_key = 'profanity_dictionary'",
+        (default[1],),
+    )
 
 
 def init_db(db_path: Path | None = None) -> None:

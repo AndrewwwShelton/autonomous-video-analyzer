@@ -5,7 +5,7 @@
 > For the original design-to-build reasoning and decision log see [`PLAN.md`](PLAN.md);
 > for what remains see [`ROADMAP.md`](ROADMAP.md).
 >
-> Last updated: **2026-08-06** · Status: **every AI engine is real; evidence outstanding**
+> Last updated: **2026-08-07** · Status: **every AI engine is real; evidence outstanding**
 
 **One-line state:** the tool works end to end — what it lacks is proof. The SRS claims
 ">85% precision" and the benchmark that would substantiate it has zero labelled clips.
@@ -40,7 +40,7 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 |---|---|
 | Python (src + backend) | ~3,320 lines |
 | Frontend (jsx/js/css) | ~2,290 lines |
-| Tests | **138 passing** across 11 files |
+| Tests | **142 passing** across 11 files |
 | Screens | 7, responsive over 4 breakpoints, light + dark |
 | REST endpoints | 15 |
 | Stage deliverables | Synopsis · SRS · DDD · UID — all submitted |
@@ -359,7 +359,7 @@ specproj/
 │
 ├── training/             download_dataset.py · prune_classes.py · train.py · RESULTS.md
 ├── docs/UID/main.tex · docs/screens/ (14 captures) · docs/SCREENSHOT_CHECKLIST.md
-├── tests/                138 tests across 11 files
+├── tests/                142 tests across 11 files
 ├── data/ · models/ · datasets/ · .venv-data/        gitignored
 ```
 
@@ -413,6 +413,30 @@ prompted M6. A weapon detection alone cannot separate gameplay from footage, and
 original `any()` rule restricted a whole video on one frame — measured, *300 frames of
 alcohol passed while one frame with a rifle did not*. Context has to come from
 somewhere other than the detector.
+
+**First real-world test, and all three engines behaved differently.** A 25 s ATF
+firing-range news clip (720p, officer shooting at a range, pistol in hand
+throughout) was run in `real` mode:
+
+- **The fine-tuned `Handgun` class never fired at all** — not one detection, at any
+  confidence, down to 0.01. This is the domain gap `RESULTS.md` warned about
+  becoming concrete: it was trained on Open Images *photographs* (clean, centred,
+  well-lit) and applied to compressed video of a small, motion-blurred, partly
+  occluded weapon held at arm's length. **More epochs will not fix this; different
+  training data would.**
+- **COCO confidently called the pistol a `cell phone` at 0.65** — a dark rectangle
+  in an extended hand. `cell phone` maps to no risk category, so it was discarded
+  in silence. The single most useful frame in the project for explaining what
+  object detection actually does.
+- **Whisper was flawless** — *"this is semi-automatic, a single pull of the
+  trigger... turning it on fully auto"* — and matched **nothing**, because the
+  dictionary held nine words: profanity plus `gun`, `kill`, `weapon`. A firearms
+  demonstration where nobody says the word "gun" passed as `Monetizable`.
+
+The lesson is about where effort pays. The dictionary is the **cheapest lever in
+the system** and the only one that covers what the vision model misses; widening it
+to real firearms, violence and substance vocabulary caught this clip on the audio
+path (`Restricted`, 2 high-severity terms) while the expensive model stayed blind.
 
 **Two overlay false positives, both found by measuring rather than reasoning.**
 *Letterbox bars*: perfectly stationary, and the boundary where they meet the picture
@@ -508,7 +532,7 @@ npm run dev --prefix frontend            # → http://localhost:5173
 2-video library, then double-click `RUN_DEMO.bat`. Stop the server before re-running
 `demo_setup.py` — it cannot delete an open database.
 
-**Tests:** `python -m pytest tests/ -q` (138 passing).
+**Tests:** `python -m pytest tests/ -q` (142 passing).
 
 **Demo vs real:** Settings → Analysis engines. `demo` needs no weights and is instant —
 the safer choice in front of a panel. `real` runs the models.
