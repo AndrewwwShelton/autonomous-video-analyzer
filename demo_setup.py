@@ -25,16 +25,29 @@ THUMBS = config.DATA_DIR / "thumbs"
 
 
 def reset():
-    """Remove the previous database, videos and reports for a clean start."""
-    if config.DATA_DIR.exists():
+    """Remove the previous database, videos and reports for a clean start.
+
+    The database is checked BEFORE anything is deleted. rmtree works depth-first,
+    so a locked audit.db is reached last -- videos, thumbnails and reports are all
+    gone by the time it fails, leaving a library whose rows point at files that no
+    longer exist. The message then says "try again", which cannot work while the
+    lock is held. Failing first leaves everything untouched and recoverable.
+    """
+    if config.DB_PATH.exists():
         try:
-            shutil.rmtree(config.DATA_DIR)
-        except PermissionError:
+            with config.DB_PATH.open("a"):
+                pass
+            config.DB_PATH.unlink()
+        except (PermissionError, OSError):
             sys.exit(
                 "\n  Could not reset: the database is open in another process.\n"
-                "  Stop the server first (close the RUN_DEMO window, or press\n"
-                "  Ctrl+C in the terminal running uvicorn), then run this again.\n"
+                "  Nothing has been deleted.\n\n"
+                "  Close the RUN_DEMO window (or press Ctrl+C in the terminal\n"
+                "  running uvicorn), then run this again.\n"
             )
+
+    if config.DATA_DIR.exists():
+        shutil.rmtree(config.DATA_DIR, ignore_errors=True)
     config.ensure_dirs()
     THUMBS.mkdir(parents=True, exist_ok=True)
     init_db()
