@@ -5,6 +5,7 @@ const NUMERIC_FIELDS = {
   frame_sample_fps: { min: 0.25, max: 4, step: 0.25, label: "Frame sample rate" },
   min_ad_spot_duration_sec: { min: 2, max: 15, step: 0.5, label: "Minimum ad-spot persistence" },
   detection_confidence_threshold: { min: 0, max: 1, step: 0.05, label: "Detection confidence threshold" },
+  detection_max_imgsz: { min: 640, max: 3840, step: 32, label: "Detection resolution cap" },
 };
 
 /** Returns { dictionary: {index: msg}, numeric: {key: msg} } — empty when valid. */
@@ -237,6 +238,12 @@ export default function SettingsPage({ toast }) {
         {numberField("min_ad_spot_duration_sec")}
         <p className="form-hint">A Premium Ad Spot is a surface that stays clear this long.</p>
         {numberField("detection_confidence_threshold")}
+        {numberField("detection_max_imgsz")}
+        <p className="form-hint">
+          Each frame is analysed at 640 px <em>and</em> at its own resolution, capped
+          here — one size cannot find both a distant weapon and one filling the frame.
+          Raising this finds smaller objects and costs proportionally more time.
+        </p>
         <div className="form-row">
           <label htmlFor="whisper_model">Transcription model</label>
           <select id="whisper_model" className="input" value={cfg.whisper_model}

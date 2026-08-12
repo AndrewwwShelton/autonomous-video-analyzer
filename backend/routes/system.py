@@ -5,8 +5,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from src import config
 from src.db import repository as repo
 from src.reports import exporter
+from src.vision.detector import MIN_IMGSZ
 
 router = APIRouter(tags=["system"])
 
@@ -37,6 +39,7 @@ class ConfigPayload(BaseModel):
     whisper_model: str
     analysis_mode: str = "demo"
     vision_weights: list[str] = ["yolov8n.pt"]
+    detection_max_imgsz: int = config.DEFAULT_MAX_IMGSZ
 
 
 @router.get("/config")
@@ -47,6 +50,8 @@ def get_config() -> dict:
         "min_ad_spot_duration_sec": repo.get_config("min_ad_spot_duration_sec") or 5.0,
         "detection_confidence_threshold": repo.get_config("detection_confidence_threshold") or 0.5,
         "whisper_model": repo.get_config("whisper_model") or "base.en",
+        "detection_max_imgsz": (repo.get_config("detection_max_imgsz")
+                                or config.DEFAULT_MAX_IMGSZ),
         "analysis_mode": repo.get_config("analysis_mode") or "demo",
         "vision_weights": repo.get_config("vision_weights") or ["yolov8n.pt"],
     }
@@ -63,6 +68,11 @@ def put_config(payload: ConfigPayload) -> dict:
     repo.set_config("detection_confidence_threshold",
                     payload.detection_confidence_threshold, "float")
     repo.set_config("whisper_model", payload.whisper_model, "string")
+    # Clamped rather than rejected: the useful range is bounded by what the
+    # network can resolve at the bottom and by patience at the top, and a typo
+    # here would otherwise make every analysis mysteriously slow or blind.
+    imgsz = max(MIN_IMGSZ, min(int(payload.detection_max_imgsz), 3840))
+    repo.set_config("detection_max_imgsz", int(round(imgsz / 32) * 32), "int")
     mode = payload.analysis_mode.lower()
     if mode not in ("demo", "real"):
         raise HTTPException(400, "analysis_mode must be 'demo' or 'real'")

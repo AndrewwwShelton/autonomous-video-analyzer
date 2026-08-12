@@ -119,7 +119,71 @@ def test_a_customised_dictionary_is_never_overwritten(db):
 def test_firearms_vocabulary_covers_how_people_actually_speak(db):
     """Regression from a real clip: an ATF firing-range video transcribed cleanly
     as "this is semi-automatic ... pull of the trigger ... fully auto" and matched
-    nothing, because the list held only profanity plus three risk words."""
+    nothing, because the list held only profanity plus three risk words.
+
+    `trigger` is deliberately absent — see
+    test_high_severity_is_reserved_for_unambiguous_terms."""
     words = _dict_words(db)
-    for phrase in ("semi automatic", "fully auto", "trigger", "gunshot"):
+    for phrase in ("semi automatic", "fully auto", "gunshot", "handgun"):
         assert phrase in words, f"{phrase!r} missing from the default dictionary"
+
+
+def test_high_severity_is_reserved_for_unambiguous_terms(db):
+    """A single High-severity spoken term restricts a video on its own, so an
+    ambiguous word carrying High severity is a false-positive machine.
+
+    Measured against ordinary creator speech, the previous list produced HIGH
+    flags for "we were shooting all day", "kill the lights" and "the render
+    killed my laptop" -- all of which would have restricted the video.
+    """
+    from src.audio.compliance import match_transcript
+    from src.audio.transcriber import WordStamp
+
+    benign = [
+        "that will trigger a rebuild once the pipeline finishes",
+        "we were shooting all day and the lighting was gorgeous",
+        "this colour grade is absolutely killing it right now",
+        "kill the lights and we will go again from the top",
+        "the render killed my laptop but the output looks clean",
+        "this soundtrack is an assault on the ears honestly",
+        "let me shoot you a message after the stream",
+    ]
+    dictionary = repo.get_config("profanity_dictionary", db_path=db)
+    for line in benign:
+        words = [WordStamp(w, i * 0.4, i * 0.4 + 0.3)
+                 for i, w in enumerate(line.split())]
+        flags = match_transcript(words, dictionary, detection_model="test")
+        high = [f["word_flagged"] for f in flags if f["severity"] == "High"]
+        assert not high, f"{high} restricts an innocent clip: {line!r}"
+
+
+def test_firearms_discussion_still_restricts(db):
+    """The counterpart: demoting ambiguous words must not disarm the dictionary.
+    This is the real ATF firing-range transcript."""
+    from src.audio.compliance import match_transcript
+    from src.audio.transcriber import WordStamp
+
+    line = ("So this is semi -automatic, a single pull of the trigger, and I will "
+            "do three shots, and then this, again, is turning it on fully auto.")
+    words = [WordStamp(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate(line.split())]
+    flags = match_transcript(words, repo.get_config("profanity_dictionary", db_path=db),
+                             detection_model="test")
+    high = {f["word_flagged"] for f in flags if f["severity"] == "High"}
+    assert high == {"semi automatic", "fully auto"}, high
+
+
+def test_the_previous_shipped_dictionary_is_also_upgraded(db):
+    """Recognising only the first-ever default would strand every database
+    seeded by an intermediate version one release behind."""
+    import json
+
+    from src.db.connection import _SHIPPED_DICTIONARIES, get_connection, init_db
+    assert len(_SHIPPED_DICTIONARIES) >= 2
+    with get_connection(db) as conn:
+        conn.execute(
+            "UPDATE SystemConfig SET config_value = ? WHERE config_key = 'profanity_dictionary'",
+            (json.dumps([{"word": w, "severity": "High"}
+                         for w in sorted(_SHIPPED_DICTIONARIES[1])]),))
+    init_db(db)
+    words = {e["word"] for e in repo.get_config("profanity_dictionary", db_path=db)}
+    assert "shooting range" in words and "shooting" not in words

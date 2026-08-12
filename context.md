@@ -40,7 +40,7 @@ Ramona Elisha Mary (2441646). Guide: Dr. Chanti.
 |---|---|
 | Python (src + backend) | ~3,630 lines |
 | Frontend (jsx/js/css) | ~2,350 lines |
-| Tests | **157 passing** across 11 files |
+| Tests | **169 passing** across 12 files |
 | Screens | 7, responsive over 4 breakpoints, light + dark |
 | REST endpoints | 15 |
 | Stage deliverables | Synopsis · SRS · DDD · UID — all submitted |
@@ -306,7 +306,8 @@ over-flagging it replaced.
   compliance_status
 - **SystemConfig** (singleton) — profanity dictionary, frame_sample_fps,
   min_ad_spot_duration_sec, detection_confidence_threshold, whisper_model,
-  **analysis_mode**, **vision_weights**, **detection_max_imgsz**
+  **analysis_mode**, **vision_weights**, **detection_max_imgsz** — all editable
+  in Settings
 
 Children cascade on delete. Boxes stored as JSON `[x1, y1, x2, y2]`.
 
@@ -402,7 +403,7 @@ specproj/
 │
 ├── training/             download_dataset.py · prune_classes.py · train.py · RESULTS.md
 ├── docs/UID/main.tex · docs/screens/ (14 captures) · docs/SCREENSHOT_CHECKLIST.md
-├── tests/                157 tests across 11 files
+├── tests/                169 tests across 12 files
 ├── data/ · models/ · datasets/ · .venv-data/        gitignored
 ```
 
@@ -619,7 +620,7 @@ npm run dev --prefix frontend            # → http://localhost:5173
 2-video library, then double-click `RUN_DEMO.bat`. Stop the server before re-running
 `demo_setup.py` — it cannot delete an open database.
 
-**Tests:** `python -m pytest tests/ -q` (157 passing).
+**Tests:** `python -m pytest tests/ -q` (169 passing).
 
 **Demo vs real:** Settings → Analysis engines. `demo` needs no weights and is instant —
 the safer choice in front of a panel. `real` runs the models.
