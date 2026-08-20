@@ -11,6 +11,40 @@
    - Elevation is a 3-step ladder: page #0f0f0f < surface #212121 < raised #282828.
      Dark mode separates with borders rather than shadows.                          */
 
+/* ================= Fonts, served locally =================
+
+   These were loaded from fonts.googleapis.com until it was noticed that the
+   whole product claims to run offline while its interface did not. With no
+   network every icon fell back to its literal ligature name -- the navigation
+   read "dashboard video_library bar_chart", labels collided, and the app looked
+   broken. A presentation room with no wifi was enough to trigger it.
+
+   Both files are in frontend/public/fonts/ and are served by the app itself, so
+   nothing here reaches the network.
+
+   The icon font is the complete Material Symbols set (2.3 MB) rather than a
+   subset of the ~27 icons in use. A subset would be about 15 KB, but icon names
+   are chosen at runtime -- progress_activity only ever appears mid-analysis --
+   so a subset silently reintroduces exactly this bug the first time someone
+   adds an icon and forgets to regenerate it. Served from localhost the size
+   costs nothing.                                                                  */
+
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 100 900;              /* variable: one file covers every weight */
+  font-display: block;               /* block, not swap: no flash of fallback  */
+  src: url("/fonts/roboto-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 300 500;
+  font-display: block;               /* swap would flash the ligature names    */
+  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
+}
+
 :root {
   color-scheme: dark;
 
@@ -89,9 +123,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Everything below the variation settings used to come from the Google
+   stylesheet. font-feature-settings: "liga" is the load-bearing one -- without
+   it the ligatures never form and each icon renders as its own name. */
 .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 

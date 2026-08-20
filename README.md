@@ -11,7 +11,10 @@ hardware. Specialization Project BCA482-5, CHRIST (Deemed to be University).
 - **Backend** — FastAPI + SQLite (WAL), serving a REST API plus video/thumbnail media
   with HTTP range support. AI pipeline in plain Python modules under `src/`.
 - **Frontend** — React + Vite, styled after YouTube Studio (Roboto, Material Symbols,
-  the Content-table layout, monetization `$` badges).
+  the Content-table layout, monetization `$` badges). Both fonts are served from
+  `frontend/public/fonts`, not from a CDN, so the interface makes **no external
+  request at all** — `python docs/check_offline.py` proves it by cutting every
+  non-localhost request and checking each of the 118 icons still renders.
 
 ## Running the demo (for the review)
 

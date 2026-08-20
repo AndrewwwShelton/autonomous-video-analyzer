@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AdSafe Studio</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%237c5cff'/><g fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round'><path d='M11 12.4V10.6h1.9M21 12.4V10.6h-1.9M11 19.6v1.8h1.9M21 19.6v1.8h-1.9' stroke-width='1.9' opacity='0.85'/><path d='M12.4 16.3l2.5 2.5 5-5.4' stroke-width='2.5'/></g></svg>" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0"
-      rel="stylesheet"
-    />
+    <!-- Fonts are served by this app from /fonts, not fetched from Google.
+         The product runs entirely on the local machine and the interface has to
+         as well: with no network the CDN icons fell back to their ligature
+         names and the whole UI read as broken text. See @font-face in
+         src/styles.css. Preloaded so no frame paints before they arrive. -->
+    <link rel="preload" href="/fonts/roboto-latin.woff2" as="font"
+          type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/material-symbols-outlined.woff2" as="font"
+          type="font/woff2" crossorigin />
     <script>
       // Stamp the theme before first paint so there's no light flash on load.
       document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
