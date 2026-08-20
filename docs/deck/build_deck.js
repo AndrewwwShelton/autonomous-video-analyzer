@@ -599,8 +599,9 @@ build.push(() => {
 build.push(() => {
   const slide = newSlide("Testing", "Working System");
   slide.addImage({ path: S("03-video-detail.png"), x: 0.72, y: 1.62, w: 7.30, h: 4.11 });
-  slide.addText("Video detail — monetization status, audit timeline, per-finding tables",
-    { x: 0.72, y: 5.80, w: 7.30, h: 0.3, fontSize: 10.5, italic: true,
+  slide.addText("Video detail — three-state verdict with its printed reasoning, the demo-output " +
+                "banner, the audit timeline, and the engine recorded against every finding",
+    { x: 0.72, y: 5.80, w: 7.30, h: 0.44, fontSize: 10.5, italic: true,
       color: MUTED, fontFace: SANS, align: "center", margin: 0 });
   slide.addImage({ path: S("02-content.png"), x: 8.28, y: 1.62, w: 4.33, h: 2.44 });
   slide.addText("Content library",

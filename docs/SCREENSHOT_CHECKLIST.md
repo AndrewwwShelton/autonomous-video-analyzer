@@ -1,23 +1,44 @@
 # Screenshot capture list — for the UID document
 
-Everything below exists in the app right now. Capture these and the UID document has
-every figure it needs.
-
-## Setup (once)
+**These are captured by a script. Do not shoot them by hand.**
 
 ```bash
-python demo_setup.py
+python docs/capture_screens.py
 ```
-Then double-click `RUN_DEMO.bat` and open <http://localhost:8000>.
 
-This leaves two videos in the library: `brand_review_final.mp4` (already analysed) and
-`studio_review_cut.mp4` (not analysed — use it for the live "running checks" shot).
+That writes all thirteen into `docs/screens/` at 2× for print, and `build_deck.js`
+and `main.tex` read from there. The fourteenth, the empty state, is destructive and
+opt-in: `python docs/capture_screens.py --with-empty-state`, then re-seed.
 
-**Capture tips**
-- Use **dark theme** (the default) for the main set — it is the product's identity.
-- Windows: `Win + Shift + S` → window capture. Or `F12` → device toolbar for exact widths.
-- Save as PNG into `docs/screens/` using the filenames below.
-- Browser zoom at 100%. Hide bookmarks bar for a cleaner frame.
+The script exists because these screenshots went stale once and nobody noticed for
+six weeks — they predated the three-state verdict, the reasoning banner and the
+per-finding Model column. Re-shooting by hand is a fifteen-step process; re-running a
+script is not, so **re-run it after any interface change**.
+
+## Setup
+
+```bash
+pip install playwright
+python demo_setup.py
+python -m uvicorn backend.main:app --port 8000
+```
+
+Then run the capture in a second terminal. `demo_setup.py` leaves two videos in the
+library: `brand_review_final.mp4` (analysed) and `studio_review_cut.mp4` (not
+analysed — the script runs that one to catch the progress bar).
+
+The script drives the Chrome already installed on the machine, so there is no browser
+download. It first checks all six pages at all five documented widths for horizontal
+overflow and prints any it finds; that check caught three real layout bugs.
+
+Afterwards it prints a reminder to re-run `demo_setup.py`, because catching the
+progress bar requires a genuine real-mode run — demo mode finishes in about two
+tenths of a second, faster than the interface can paint a progress bar at all.
+
+## What each shot should contain
+
+The table below is the reference for what the script produces, and what to check if a
+capture ever looks wrong.
 
 ---
 

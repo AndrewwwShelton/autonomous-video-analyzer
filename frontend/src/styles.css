@@ -180,7 +180,11 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 .sidebar--mini .sidebar__channel, .sidebar--mini .navitem span:last-child { display: none; }
 .sidebar--mini .navitem { justify-content: center; padding: 0; width: 56px; height: 56px; flex-direction: column; gap: 4px; }
 
-.main { flex: 1; margin-left: var(--sidebar-w); padding: 24px; max-width: 1400px; }
+/* min-width: 0 is load-bearing. A flex item defaults to min-width: auto, so it
+   refuses to shrink below its content's min-content width; the video detail
+   grid was wide enough to push .main to 1350px inside a 1200px slot and the
+   whole page scrolled sideways at 1440px. */
+.main { flex: 1; min-width: 0; margin-left: var(--sidebar-w); padding: 24px; max-width: 1400px; }
 .main--mini { margin-left: var(--sidebar-mini); }
 
 /* ================= Shared components ================= */
@@ -327,7 +331,10 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
 
 .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .detail-header h1 { font-size: 22px; font-weight: 400; flex: 1; }
-.detail-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
+/* minmax(0, 1fr), not 1fr: a bare 1fr track floors at min-content, so a wide
+   findings table pushes the grid past its container instead of scrolling
+   inside its own card. */
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat { padding: 16px 20px; }
@@ -519,7 +526,10 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
    Desktop >=1200 · Laptop 900–1199 · Tablet 600–899 · Mobile <600            */
 
 @media (max-width: 1199px) {
-  .detail-grid { grid-template-columns: 1fr; }
+  /* minmax(0, ...) again: a single bare 1fr track still floors at min-content,
+     so the findings table stretched the column and .table-scroll, sized to its
+     content, never got the chance to scroll. */
+  .detail-grid { grid-template-columns: minmax(0, 1fr); }
   .stats--4 { grid-template-columns: repeat(2, 1fr); }
   .playercard { max-width: 560px; }
 }
@@ -562,10 +572,14 @@ input, select { font-family: inherit; font-size: 14px; color: var(--ink); }
   /* Content table → card list. Tables do not work at this width.
      Scoped to --cards: the detail tables scroll horizontally instead. */
   .vtable--cards thead { display: none; }
-  .vtable--cards, .vtable--cards tbody, .vtable--cards tr, .vtable--cards td {
+  .vtable--cards, .vtable--cards tbody, .vtable--cards td {
     display: block; width: 100%;
   }
+  /* width: auto, not 100%. A block element already fills its container, and
+     100% plus the 12px side margins below is 24px wider than the space
+     available -- which clipped the right edge of every card. */
   .vtable--cards tr {
+    display: block; width: auto;
     border: 1px solid var(--border); border-radius: var(--radius);
     margin: 12px; padding: 12px; background: var(--surface);
   }

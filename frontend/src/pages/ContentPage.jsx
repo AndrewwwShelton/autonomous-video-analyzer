@@ -74,7 +74,15 @@ export default function ContentPage({ search, toast, refreshKey }) {
     try {
       await api.analyze(v.video_id);
       toast(`Running checks on ${v.filename}`);
-      load();
+      // Do NOT refetch here. The endpoint returns 202 as soon as the job is
+      // queued, before the background task writes processed_status; a refetch
+      // races that write and usually wins, so the row comes back "pending",
+      // anyProcessing stays false, the poll below never starts and no progress
+      // bar is ever drawn. Nothing refetches again, so the row sits stale for
+      // the whole run. Mark it processing from what the POST already told us
+      // and let the poll reconcile with the server from here.
+      setVideos((prev) => (prev ?? []).map((x) =>
+        x.video_id === v.video_id ? { ...x, processed_status: "processing" } : x));
     } catch (e) {
       toast(e.message);
     }
@@ -130,6 +138,10 @@ export default function ContentPage({ search, toast, refreshKey }) {
             )}
           </div>
         ) : (
+          // .table-scroll keeps the seven-column table inside its card at
+          // laptop and tablet widths. Without it the table widened the page
+          // itself and the whole layout scrolled sideways.
+          <div className="table-scroll">
           <table className="vtable vtable--cards">
             <thead>
               <tr>
@@ -187,6 +199,7 @@ export default function ContentPage({ search, toast, refreshKey }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </>
