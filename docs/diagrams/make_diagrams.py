@@ -445,6 +445,354 @@ def er_diagram():
     label(ax, 1.5, 3, "Every child relationship is ON DELETE CASCADE.",
           size=7.4, colour=GREY, italic=True)
     c.save("er_diagram.png")
+# ------------------------------------------------------------------------ wbs
+
+def wbs():
+    c = Canvas(13, 6.4)
+    ax = c.ax
+
+    box(ax, 30, 90, 40, 8, "ADSAFE STUDIO\nSpecialization Project", size=10)
+
+    phases = [
+        ("1   ANALYSIS AND\nSPECIFICATION", [
+            "1.1  Requirement gathering\nand justification",
+            "1.2  System analysis",
+            "1.3  Software requirement\nspecification"]),
+        ("2   DESIGN", [
+            "2.1  Database and\narchitecture design",
+            "2.2  User interface\ndesign"]),
+        ("3   IMPLEMENTATION", [
+            "3.1  Audio engine",
+            "3.2  Vision engine",
+            "3.3  Advertisement\nplacement algorithm",
+            "3.4  Model training",
+            "3.5  Report generation"]),
+        ("4   VALIDATION", [
+            "4.1  Accuracy\nbenchmarking",
+            "4.2  Testing and\ndocumentation"]),
+    ]
+
+    colw, gap, x0 = 22.5, 2.5, 1.25
+    centres = [x0 + i * (colw + gap) + colw / 2 for i in range(4)]
+
+    # Trunk: root down to a spanning rail, then a drop into each phase.
+    ax.plot([50, 50], [90, 86.5], color=RULE, lw=1.4, zorder=1)
+    ax.plot([centres[0], centres[-1]], [86.5, 86.5], color=RULE, lw=1.4,
+            zorder=1)
+    for cx in centres:
+        ax.plot([cx, cx], [86.5, 83], color=RULE, lw=1.4, zorder=1)
+
+    for i, (name, leaves) in enumerate(phases):
+        x = x0 + i * (colw + gap)
+        box(ax, x, 74, colw, 9, name, size=8.6)
+
+        spine = x + 1.8
+        lx, lw_ = x + 4.0, colw - 4.0
+        last_cy = None
+        for j, leaf in enumerate(leaves):
+            y = 68 - j * 9.0 - 7
+            cy = y + 3.5
+            box(ax, lx, y, lw_, 7, leaf, fill=WASH, fg=INK, size=6.5,
+                bold=False, edge=RULE)
+            ax.plot([spine, lx], [cy, cy], color=RULE, lw=1.2, zorder=1)
+            last_cy = cy
+        ax.plot([spine, spine], [74, last_cy], color=RULE, lw=1.2, zorder=1)
+
+    label(ax, 50, 16,
+          "Twelve work packages across four phases. Packages 3.1 to 3.5 "
+          "correspond to the four implementation modules of Table 3.3.",
+          size=8.2, colour=GREY, ha="center", italic=True)
+    c.save("wbs.png")
+
+
+# ----------------------------------------------------------------------- pert
+
+PERT_RX = 3.8
+
+
+def _pert_node(c, ax, cx, cy, tid, weeks, critical):
+    rx = PERT_RX
+    ry = c.sq(rx)
+    fill = NAVY if critical else "white"
+    fg = "white" if critical else NAVY
+    ax.add_patch(Ellipse((cx, cy), rx * 2, ry * 2, facecolor=fill,
+                         edgecolor=NAVY, lw=1.5, zorder=3))
+    label(ax, cx, cy + 2.2, tid, size=9.0, colour=fg, bold=True, ha="center")
+    label(ax, cx, cy - 3.0, f"{weeks} w", size=6.8, colour=fg, ha="center")
+    return (cx, cy, rx, ry)
+
+
+def _pert_edge(ax, a, b, critical=False):
+    """Trim the arrow to the two ellipse boundaries.
+
+    Nodes must be spaced wider than the sum of their radii or the trimmed
+    arrow has no length left and renders as nothing -- T11 to T12 disappeared
+    entirely the first time this was drawn.
+    """
+    (x1, y1, rx1, ry1), (x2, y2, rx2, ry2) = a, b
+    dx, dy = x2 - x1, y2 - y1
+    d = (dx * dx + dy * dy) ** 0.5
+    ux, uy = dx / d, dy / d
+    t1 = 1.0 / ((ux / rx1) ** 2 + (uy / ry1) ** 2) ** 0.5
+    t2 = 1.0 / ((ux / rx2) ** 2 + (uy / ry2) ** 2) ** 0.5
+    ax.add_patch(FancyArrowPatch(
+        (x1 + ux * t1, y1 + uy * t1), (x2 - ux * t2, y2 - uy * t2),
+        arrowstyle="-|>", mutation_scale=13,
+        linewidth=2.1 if critical else 1.2,
+        color=RED if critical else GREY, zorder=1))
+
+
+def pert():
+    c = Canvas(13, 7)
+    ax = c.ax
+
+    crit = {"T1", "T2", "T3", "T4", "T7", "T9", "T10", "T11", "T12"}
+    placed = {}
+    spec = [
+        ("T1", 4.5, 62, 1), ("T2", 15, 62, 1), ("T3", 25.5, 62, 1),
+        ("T4", 36, 62, 1),
+        ("T5", 50, 88, 2), ("T6", 50, 72, 1), ("T7", 50, 54, 2),
+        ("T8", 50, 38, 1),
+        ("T9", 62, 54, 1), ("T10", 74, 62, 1), ("T11", 85, 62, 1),
+        ("T12", 96, 62, 1),
+    ]
+    for tid, x, y, weeks in spec:
+        placed[tid] = _pert_node(c, ax, x, y, tid, weeks, tid in crit)
+
+    links = [
+        ("T1", "T2"), ("T2", "T3"), ("T3", "T4"),
+        ("T4", "T5"), ("T4", "T6"), ("T4", "T7"), ("T4", "T8"),
+        ("T7", "T9"),
+        ("T5", "T10"), ("T6", "T10"), ("T8", "T10"), ("T9", "T10"),
+        ("T10", "T11"), ("T11", "T12"),
+    ]
+    for a, b in links:
+        _pert_edge(ax, placed[a], placed[b], a in crit and b in crit)
+
+    names = ("T1 requirements   T2 analysis   T3 SRS   T4 design   "
+             "T5 interface   T6 audio engine\n"
+             "T7 vision engine   T8 placement algorithm   T9 model training   "
+             "T10 reporting   T11 benchmarking   T12 testing")
+    label(ax, 50, 22, names, size=7.4, colour=GREY, ha="center")
+
+    ax.add_patch(patches.Rectangle((2, 6), 96, 9, facecolor=WASH,
+                                   edgecolor=RULE, lw=1.0, zorder=1))
+    label(ax, 5, 11.8, "CRITICAL PATH", size=8.0, colour=RED, bold=True)
+    label(ax, 5, 8.4,
+          "T1 - T2 - T3 - T4 - T7 - T9 - T10 - T11 - T12   =   10 weeks",
+          size=7.8, colour=INK)
+    label(ax, 55, 11.8,
+          "Total scheduled effort is 14 weeks (Table 3.2).", size=7.6,
+          colour=GREY)
+    label(ax, 55, 8.4,
+          "The difference is slack on the parallel branches T5, T6 and T8.",
+          size=7.6, colour=GREY)
+    c.save("pert.png")
+
+
+# ---------------------------------------------------------------------- gantt
+
+GANTT_TASKS = [
+    ("T1", "Requirement gathering", 1, 1),
+    ("T2", "System analysis", 2, 1),
+    ("T3", "SRS preparation", 3, 1),
+    ("T4", "Database and architecture design", 4, 1),
+    ("T5", "User interface design", 5, 2),
+    ("T6", "Audio engine", 7, 1),
+    ("T7", "Vision engine", 8, 2),
+    ("T8", "Advertisement placement algorithm", 10, 1),
+    ("T9", "Model training and evaluation", 11, 1),
+    ("T10", "Report generation", 12, 1),
+    ("T11", "Accuracy benchmarking", 13, 1),
+    ("T12", "Testing and documentation", 14, 1),
+]
+GANTT_CRITICAL = {"T1", "T2", "T3", "T4", "T7", "T9", "T10", "T11", "T12"}
+
+
+def gantt():
+    c = Canvas(13, 7)
+    ax = c.ax
+
+    left, right = 28.0, 96.0
+    week = (right - left) / 14.0
+    top, bottom = 86.0, 16.0
+    pitch = (top - bottom) / len(GANTT_TASKS)
+
+    for i in range(15):
+        x = left + i * week
+        ax.plot([x, x], [bottom - 1, top + 1], color=RULE, lw=0.7,
+                zorder=0, alpha=0.55)
+    for i in range(14):
+        label(ax, left + (i + 0.5) * week, top + 4.6, f"W{i + 1}", size=7.0,
+              colour=NAVY, bold=True, ha="center")
+
+    ax.plot([left - 0.4, right], [top + 1, top + 1], color=NAVY, lw=1.3,
+            zorder=1)
+
+    for i, (tid, name, start, dur) in enumerate(GANTT_TASKS):
+        cy = top - (i + 0.5) * pitch
+        label(ax, 1.5, cy, tid, size=7.4, colour=NAVY, bold=True)
+        label(ax, 6.5, cy, name, size=7.4, colour=INK)
+        ax.add_patch(patches.Rectangle(
+            (left + (start - 1) * week, cy - 1.9), dur * week, 3.8,
+            facecolor=NAVY if tid in GANTT_CRITICAL else PALE,
+            edgecolor=NAVY, lw=1.1, zorder=2))
+        label(ax, left + (start - 1 + dur) * week + 1.2, cy,
+              f"{dur} w", size=6.6, colour=GREY)
+
+    ax.add_patch(patches.Rectangle((28, 6.5), 3.6, 3.2, facecolor=NAVY,
+                                   edgecolor=NAVY, zorder=2))
+    label(ax, 33, 8.1, "on the critical path", size=7.4, colour=INK)
+    ax.add_patch(patches.Rectangle((60, 6.5), 3.6, 3.2, facecolor=PALE,
+                                   edgecolor=NAVY, zorder=2))
+    label(ax, 65, 8.1, "carries slack", size=7.4, colour=INK)
+    c.save("gantt.png")
+
+
+# ------------------------------------------------------------------- dfd zero
+
+def _ellipse_edge(cx, cy, rx, ry, y, right):
+    dy = max(-0.94, min(0.94, (y - cy) / ry))
+    dx = rx * (1 - dy * dy) ** 0.5
+    return (cx + dx if right else cx - dx, y)
+
+
+def dfd_level0():
+    c = Canvas(13, 6.6)
+    ax = c.ax
+
+    cx, cy, rx = 50.0, 57.0, 15.5
+    ry = c.sq(rx)
+
+    box(ax, 2, 44, 19, 26, "CREATOR", size=9.5)
+    box(ax, 79, 44, 19, 26, "LOCAL\nMODEL STORE", size=9.5)
+
+    ax.add_patch(Ellipse((cx, cy), rx * 2, ry * 2, facecolor=PALE,
+                         edgecolor=NAVY, lw=1.8, zorder=2))
+    label(ax, cx, cy + 5.5, "0", size=11, colour=NAVY, bold=True, ha="center")
+    label(ax, cx, cy - 2.0, "VIDEO ANALYSIS\nSYSTEM", size=9.5, colour=NAVY,
+          bold=True, ha="center")
+
+    for y, text in ((68, "video file"), (60, "analysis request")):
+        arrow(ax, (21, y), _ellipse_edge(cx, cy, rx, ry, y, right=False), text,
+              size=7.4, ty=2.2)
+    for y, text in ((51, "compliance verdict and findings"),
+                    (43, "exported report")):
+        arrow(ax, _ellipse_edge(cx, cy, rx, ry, y, right=False), (21, y), text,
+              size=7.4, ty=2.2)
+    for y, text in ((64, "transcription model"), (52, "detection weights")):
+        arrow(ax, (79, y), _ellipse_edge(cx, cy, rx, ry, y, right=True), text,
+              size=7.4, ty=2.2)
+
+    label(ax, 50, 94, "CONTEXT DIAGRAM", size=9.0, colour=NAVY, bold=True,
+          ha="center")
+    label(ax, 50, 17,
+          "No data flow crosses to any external service. The model store is a "
+          "directory on the same machine,\nso the diagram has no third entity "
+          "-- which is the property that distinguishes this system from a "
+          "cloud service.",
+          size=7.8, colour=RED, ha="center")
+    c.save("dfd_level0.png")
+
+
+# ------------------------------------------------------------------- sequence
+
+def sequence():
+    c = Canvas(13, 7)
+    ax = c.ax
+
+    label(ax, 50, 97,
+          "Engines run one after another -- a single database writer, and no "
+          "contention for memory.",
+          size=7.8, colour=RED, bold=True, ha="center")
+
+    actors = [("INTERFACE", 9), ("API", 25), ("ORCHESTRATOR", 43),
+              ("AUDIO ENGINE", 60), ("VISION ENGINE", 76), ("DATABASE", 92)]
+    lanes = {}
+    for name, x in actors:
+        box(ax, x - 7.6, 86, 15.2, 7, name, size=7.4)
+        ax.plot([x, x], [86, 9], color=RULE, lw=1.1, linestyle=(0, (4, 3)),
+                zorder=0)
+        lanes[name.split()[0]] = x
+
+    ui, api = lanes["INTERFACE"], lanes["API"]
+    orc, aud = lanes["ORCHESTRATOR"], lanes["AUDIO"]
+    vis, db = lanes["VISION"], lanes["DATABASE"]
+
+    # Orchestrator holds the pipeline open for its whole run.
+    ax.add_patch(patches.Rectangle((orc - 1.5, 22), 3.0, 50, facecolor=PALE,
+                                   edgecolor=NAVY, lw=1.0, zorder=2))
+
+    msgs = [
+        (ui, api, 82, "POST /api/videos/{id}/analyze", None),
+        (api, ui, 76, "202 Accepted -- queued", "dashed"),
+        (api, orc, 70, "run_pipeline(video_id)", None),
+        (orc, aud, 63, "extract -> transcribe -> match", None),
+        (aud, db, 56, "insert AudioFlags", None),
+        (orc, vis, 49, "sample frames -> detect at two scales", None),
+        (vis, db, 42, "insert VisualFlags", None),
+        (orc, vis, 35, "free-space scan -> track >= 5 s", None),
+        (vis, db, 28, "insert AdSpots", None),
+        (orc, db, 22, "write verdict and reasoning", None),
+        (ui, api, 15, "GET /api/videos/{id}   (polled)", None),
+        (api, ui, 9, "verdict, findings, progress", "dashed"),
+    ]
+    for x1, x2, y, text, dash in msgs:
+        arrow(ax, (x1, y), (x2, y), text, size=6.8, ty=2.4, dash=dash)
+
+    footnote(ax, "The API returns before the analysis completes, so the "
+                 "interface stays responsive and polls for progress.")
+    c.save("sequence.png")
+
+
+# ---------------------------------------------------------------- incremental
+
+def incremental():
+    c = Canvas(13, 7)
+    ax = c.ax
+
+    phases = ["Analysis", "Design", "Implementation", "Testing", "Evaluation"]
+    increments = [
+        "Increment 1  --  Skeleton: database, API, interface, deterministic "
+        "stand-in for every engine",
+        "Increment 2  --  Audio engine: extraction, transcription, keyword "
+        "matching",
+        "Increment 3  --  Vision engine: object detection, free-space "
+        "placement algorithm",
+        "Increment 4  --  Overlay context, verdict reasoning, accuracy "
+        "benchmarking",
+    ]
+
+    pw, pgap, h = 11.0, 1.1, 10.0
+    rows = [6.0, 28.5, 51.0, 73.5]
+    for i, (base, title) in enumerate(zip(rows, increments)):
+        x0 = 2.0 + i * 7.0
+        # Offset from the row start so the staircase connector, which rises at
+        # x0 + 12.5, does not run straight through the text.
+        label(ax, x0 + 22, base + h + 3.0, title, size=7.8, colour=NAVY,
+              bold=True)
+        for j, phase in enumerate(phases):
+            x = x0 + j * (pw + pgap)
+            box(ax, x, base, pw, h, phase,
+                fill=NAVY if j == 0 else PALE,
+                fg="white" if j == 0 else NAVY, size=7.0)
+            if j:
+                arrow(ax, (x - pgap - 0.2, base + h / 2),
+                      (x - 0.2, base + h / 2), colour=GREY)
+        end_x = x0 + 4 * (pw + pgap) + pw
+        box(ax, end_x + 2.0, base + 1.4, 13.5, h - 2.8,
+            f"Working\nsystem {i + 1}", fill=WASH, fg=NAVY, size=7.0,
+            edge=RULE)
+
+    for i in range(3):
+        nx0 = 2.0 + (i + 1) * 7.0
+        arrow(ax, (nx0 + 5.5, rows[i] + h + 0.5), (nx0 + 5.5, rows[i + 1] - 0.5),
+              colour=NAVY, dash="dashed")
+
+    footnote(ax, "Each increment replaces one stand-in with a working "
+                 "implementation. The pipeline runs from increment 1 onward, "
+                 "so there is no phase in which the system does not operate.")
+    c.save("incremental.png")
 
 
 if __name__ == "__main__":
@@ -455,4 +803,10 @@ if __name__ == "__main__":
     activity()
     class_diagram()
     er_diagram()
+    wbs()
+    pert()
+    gantt()
+    dfd_level0()
+    sequence()
+    incremental()
     print("done")

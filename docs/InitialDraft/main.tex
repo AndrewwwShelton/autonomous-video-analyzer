@@ -331,15 +331,9 @@ The project has been divided into the following phases:
 \item Testing and Documentation
 \end{enumerate}
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{5cm}
-Work Breakdown Structure Diagram
-\vspace{5cm}
-}
-}
+\includegraphics[width=0.95\textwidth]{Images/wbs.png}
 \caption{Work Breakdown Structure}
 \end{figure}
 
@@ -387,15 +381,9 @@ The Program Evaluation and Review Technique chart represents the dependencies be
 
 The database and architecture design must be complete before any engine can store its findings, so tasks T6 through T8 all depend on T4. The audio and vision engines are independent of one another and could in principle be developed in parallel. Benchmarking depends on every engine being complete, which places T11 on the critical path.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{6cm}
-PERT Chart
-\vspace{6cm}
-}
-}
+\includegraphics[width=0.95\textwidth]{Images/pert.png}
 \caption{PERT Chart}
 \end{figure}
 
@@ -403,15 +391,9 @@ PERT Chart
 
 The Gantt chart presents the project schedule against calendar time, showing the duration of each activity and the overlap between them.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{6cm}
-Gantt Chart
-\vspace{6cm}
-}
-}
+\includegraphics[width=0.95\textwidth]{Images/gantt.png}
 \caption{Gantt Chart}
 \end{figure}
 
@@ -707,15 +689,9 @@ The phases within each increment are:
 \item Evaluation before proceeding.
 \end{enumerate}
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{5cm}
-Incremental Model
-\vspace{5cm}
-}
-}
+\includegraphics[width=0.95\textwidth]{Images/incremental.png}
 \caption{Incremental Development Model}
 \end{figure}
 
@@ -769,15 +745,9 @@ The system interacts with two external entities:
 
 The main process is the Video Analysis System.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{7cm}
-DFD Level 0 Diagram
-\vspace{7cm}
-}
-}
+\includegraphics[width=0.92\textwidth]{Images/dfd_level0.png}
 \caption{DFD Level 0}
 \end{figure}
 
@@ -863,15 +833,9 @@ The sequence diagram describes the interaction between the interface, the API, t
 
 The interface issues an analysis request to the API, which queues the work in the background and returns immediately so the interface remains responsive. The orchestrator invokes each engine in turn, writing findings to the database, and reports progress that the interface polls until completion.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\fbox{
-\parbox{12cm}{
-\vspace{7cm}
-Sequence Diagram
-\vspace{7cm}
-}
-}
+\includegraphics[width=0.95\textwidth]{Images/sequence.png}
 \caption{Sequence Diagram}
 \end{figure}
 
