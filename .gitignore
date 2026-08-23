@@ -44,3 +44,6 @@ training/_colab_stage/
 .venv-data/
 
 # Deck build output: regenerate with node docs/deck/build_deck.js
+
+# Built for Overleaf upload; regenerate with docs/FinalReport/make_images.py
+AdSafe_FinalReport_Overleaf.zip
