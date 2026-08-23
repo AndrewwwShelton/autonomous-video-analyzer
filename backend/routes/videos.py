@@ -70,17 +70,23 @@ def get_video(video_id: int) -> dict:
 
 @router.post("/videos", status_code=201)
 async def upload_video(file: UploadFile) -> dict:
-    suffix = Path(file.filename or "upload.mp4").suffix.lower()
+    # .name strips any directory part the client sent. Interpolating the raw
+    # filename let it escape VIDEO_DIR: "a/../../../../evil.mp4" normalises to
+    # a path outside the repository, and the suffix check still saw ".mp4"
+    # because only the last component is inspected. Browsers do not send paths,
+    # but the endpoint is reachable directly.
+    original = Path(file.filename or "upload.mp4").name
+    suffix = Path(original).suffix.lower()
     if suffix not in config.SUPPORTED_EXTENSIONS:
         raise HTTPException(400, f"Unsupported format {suffix} — use MP4, MOV or AVI.")
     config.ensure_dirs()
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = config.VIDEO_DIR / f"{stamp}_{file.filename}"
+    dest = config.VIDEO_DIR / f"{stamp}_{original}"
     with dest.open("wb") as out:
         while chunk := await file.read(1 << 20):
             out.write(chunk)
     try:
-        return _ingest_file(dest, file.filename)
+        return _ingest_file(dest, original)
     except ValueError as e:
         dest.unlink(missing_ok=True)
         raise HTTPException(400, str(e))

@@ -79,7 +79,7 @@ DETAILS = [
     ("Project Title:", TITLE),
     ("Programme:", "Bachelor of Computer Applications (BCA) &mdash; BCA482-5, "
                    "Specialization Project"),
-    ("Semester / Section:", "V / " + "_" * 22),
+    ("Semester / Section:", "V / 5BCA-B"),
     ("Academic Year:", "2026&ndash;27"),
     ("Project Guide:", "Dr. Chanti, Assistant Professor, "
                        "Department of Computer Science"),

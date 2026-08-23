@@ -793,6 +793,163 @@ def incremental():
                  "implementation. The pipeline runs from increment 1 onward, "
                  "so there is no phase in which the system does not operate.")
     c.save("incremental.png")
+# --------------------------------------------------------------- state chart
+
+def state_diagram():
+    c = Canvas(13, 7)
+    ax = c.ax
+
+    def state(x, y, w, h, name, sub=""):
+        ax.add_patch(FancyBboxPatch((x, y), w, h,
+                                    boxstyle="round,pad=0,rounding_size=2.2",
+                                    linewidth=1.8, edgecolor=NAVY,
+                                    facecolor=PALE, zorder=2))
+        label(ax, x + w / 2, y + h - (5.4 if sub else h / 2), name, size=9.4,
+              colour=NAVY, bold=True, ha="center")
+        if sub:
+            label(ax, x + w / 2, y + h - 11.4, sub, size=7.0, colour=GREY,
+                  ha="center")
+        return (x, y, w, h)
+
+    def right(b):
+        return (b[0] + b[2], b[1] + b[3] / 2)
+
+    def left(b):
+        return (b[0], b[1] + b[3] / 2)
+
+    def top(b):
+        return (b[0] + b[2] / 2, b[1] + b[3])
+
+    def bottom(b):
+        return (b[0] + b[2] / 2, b[1])
+
+    ax.add_patch(Ellipse((5, 69), 3.0, c.sq(3.0), facecolor=NAVY,
+                         edgecolor=NAVY, zorder=3))
+
+    pending = state(13, 61, 21, 16, "pending", "queued, never analysed")
+    running = state(42, 61, 24, 16, "processing", "engines running in turn")
+    done = state(74, 61, 23, 16, "completed", "verdict written")
+    failed = state(42, 26, 24, 16, "failed", "engine raised an error")
+
+    arrow(ax, (6.6, 69), left(pending), "upload", 7.4, ty=2.6)
+    arrow(ax, right(pending), left(running), "run checks", 7.4, ty=2.6)
+    arrow(ax, right(running), left(done), "pipeline finished", 7.4, ty=2.6)
+    arrow(ax, bottom(running), top(failed), colour=GREY)
+    label(ax, 55.5, 51, "unrecoverable error", size=7.4, colour=INK)
+
+    # Re-run returns a completed video to processing, over the top.
+    ax.plot([85.5, 85.5], [77, 90], color=GREY, lw=1.3, zorder=1)
+    ax.plot([85.5, 54], [90, 90], color=GREY, lw=1.3, zorder=1)
+    arrow(ax, (54, 90), (54, 77), colour=GREY)
+    label(ax, 70, 92.2, "re-run checks", size=7.4, colour=INK, ha="center")
+
+    # A failed video can be run again, underneath.
+    ax.plot([66, 71], [34, 34], color=GREY, lw=1.3, zorder=1)
+    ax.plot([71, 71], [34, 47], color=GREY, lw=1.3, zorder=1)
+    ax.plot([71, 60], [47, 47], color=GREY, lw=1.3, zorder=1)
+    arrow(ax, (60, 47), (60, 61), colour=GREY)
+    label(ax, 72.6, 40, "retry", size=7.4, colour=INK)
+
+    ax.add_patch(Ellipse((88, 45), 4.4, c.sq(4.4), facecolor="white",
+                         edgecolor=NAVY, lw=1.6, zorder=3))
+    ax.add_patch(Ellipse((88, 45), 2.4, c.sq(2.4), facecolor=NAVY,
+                         edgecolor=NAVY, zorder=4))
+    arrow(ax, (85.5, 61), (88, 49.6), colour=GREY)
+    label(ax, 90.6, 55, "record\ndeleted", size=7.4, colour=INK)
+
+    label(ax, 4, 14,
+          "A completed video also carries one of three advertiser-suitability "
+          "verdicts — Monetizable, Review or Restricted — with the reasoning "
+          "that produced it.\nThe verdict is an attribute of the completed "
+          "state rather than a state of its own: it is recomputed from "
+          "scratch on every re-run.",
+          size=7.8, colour=RED)
+    footnote(ax, "Lifecycle of a VideoMetadata record. The schema constrains "
+                 "processed_status to exactly these four values.")
+    c.save("state_diagram.png")
+
+
+# -------------------------------------------------------- control flow chart
+
+def control_flow():
+    c = Canvas(13, 7.6)
+    ax = c.ax
+
+    BW, BH = 34.0, 8.6
+    LX, RX = 8.0, 58.0
+    LCX, RCX = LX + BW / 2, RX + BW / 2
+    rows = [88.0, 76.2, 64.4, 52.6, 40.8, 29.0, 17.2]
+    RAIL = 2.2                      # outside both columns, so nothing crosses
+
+    def step(x, i, text, fill=PALE, fg=NAVY):
+        y = rows[i] - BH
+        box(ax, x, y, BW, BH, text, fill=fill, fg=fg, size=7.5, bold=False,
+            edge=RULE)
+        return (x + BW / 2, y, y + BH)
+
+    def terminal(x, i, text, fill=NAVY, fg="white"):
+        y = rows[i] - BH
+        ax.add_patch(FancyBboxPatch((x + 6, y), BW - 12, BH,
+                                    boxstyle="round,pad=0,rounding_size=4.2",
+                                    linewidth=1.6, edgecolor=NAVY,
+                                    facecolor=fill, zorder=2))
+        label(ax, x + BW / 2, y + BH / 2, text, size=8.2, colour=fg,
+              bold=True, ha="center")
+        return (x + BW / 2, y, y + BH)
+
+    def down(a, b):
+        arrow(ax, (a[0], a[1]), (b[0], b[2]), colour=GREY)
+
+    label(ax, LX, 94.5, "AUDIO AND LANGUAGE STAGE", size=8.4, colour=NAVY,
+          bold=True)
+    a0 = terminal(LX, 0, "START · analyse(video_id)")
+    a1 = step(LX, 1, "Read pipeline configuration\nfrom SystemConfig")
+    a2 = step(LX, 2, "Extract the audio track to WAV\n(per-process filename)")
+    dy = rows[3] - BH / 2
+    # Height 11, not 17: at 17 the diamond's lower vertex reached past the top
+    # of the next box and swallowed its own "yes" exit arrow.
+    diamond(ax, LCX, dy, 28, 11, "audio track\npresent?")
+    a4 = step(LX, 4, "Transcribe with faster-whisper,\nword-level timestamps")
+    a5 = step(LX, 5, "Match each word against the\nrestricted dictionary")
+    a6 = step(LX, 6, "Write AudioFlags rows, each\nrecording its engine")
+
+    down(a0, a1)
+    down(a1, a2)
+    arrow(ax, (LCX, a2[1]), (LCX, dy + 5.5), colour=GREY)
+    arrow(ax, (LCX, dy - 5.5), (LCX, a4[2]), colour=GREY)
+    label(ax, LCX + 2.2, dy - 7.4, "yes", size=7.0, colour=INK)
+    down(a4, a5)
+    down(a5, a6)
+
+    label(ax, RX, 94.5, "VISION, PLACEMENT AND VERDICT STAGE", size=8.4,
+          colour=NAVY, bold=True)
+    b0 = step(RX, 0, "Sample frames at the configured\nrate (1 fps)")
+    b1 = step(RX, 1, "Detect at 640 px and at native\nwidth; merge by IoU → VisualFlags")
+    b2 = step(RX, 2, "Persistent-overlay analysis\n(streaming temporal variance)")
+    b3 = step(RX, 3, "Free-space scan: largest clear\nrectangle in each frame")
+    b4 = step(RX, 4, "Keep only surfaces that persist\nfor five seconds or more")
+    b5 = step(RX, 5, "assess_compliance(): verdict\nand its printed reasoning",
+              fill=WASH)
+    b6 = terminal(RX, 6, "END · status completed", fill="white", fg=NAVY)
+
+    for a, b in ((b0, b1), (b1, b2), (b2, b3), (b3, b4), (b4, b5), (b5, b6)):
+        down(a, b)
+
+    # Both the "no" branch and the finished audio stage join one rail that runs
+    # outside the left column and over the top, so no connector crosses a box.
+    ax.plot([LCX - 14, RAIL], [dy, dy], color=GREY, lw=1.3, zorder=1)
+    label(ax, LCX - 13.0, dy + 2.6, "no", size=7.0, colour=INK)
+    ax.plot([LCX, LCX], [a6[1], 9.0], color=GREY, lw=1.3, zorder=1)
+    ax.plot([LCX, RAIL], [9.0, 9.0], color=GREY, lw=1.3, zorder=1)
+    ax.plot([RAIL, RAIL], [9.0, 97.0], color=GREY, lw=1.3, zorder=1)
+    ax.plot([RAIL, RCX], [97.0, 97.0], color=GREY, lw=1.3, zorder=1)
+    arrow(ax, (RCX, 97.0), (RCX, rows[0]), colour=GREY)
+    label(ax, 30, 6.2, "audio stage complete", size=7.0, colour=INK)
+
+    footnote(ax, "The engines run strictly in sequence: a single database "
+                 "writer, and no contention for memory between Whisper "
+                 "and YOLO.")
+    c.save("control_flow.png")
 
 
 if __name__ == "__main__":
@@ -809,4 +966,6 @@ if __name__ == "__main__":
     dfd_level0()
     sequence()
     incremental()
+    state_diagram()
+    control_flow()
     print("done")
