@@ -135,73 +135,82 @@ bottom=1in
 % COVER PAGE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Spacing reduced from the template's values. The template's placeholder title
-% was one line; this one is four \Huge lines, and at the original spacing the
-% page overflowed and the last two lines fell onto a second page. \singlespacing
-% here as well -- \onehalfspacing applies to the title block otherwise and costs
-% another two centimetres.
+% Spacing reduced from the template's values, and reduced FURTHER here than the
+% first pass. The template's placeholder title was one line; this one is four
+% \Huge lines. The first fix (singlespacing, smaller gaps) fit under Tectonic
+% locally but still overflowed under Overleaf's pdflatex + newtxtext -- the two
+% engines set slightly different line heights for the same font, so a page that
+% clears by a few points in one clears by a negative number in the other.
+%
+% Two changes address that gap rather than re-guessing a single fixed number.
+% First, the gaps are smaller again, with real slack rather than a near-exact
+% fit. Second, most gaps below now carry "minus" shrink, so if this still runs
+% long by a small amount under a given engine, TeX's own page-breaking can
+% compress these gaps to close the difference instead of silently spilling the
+% address block onto page 2 -- which is what "the footer moves to the next
+% page" actually was.
 \begin{titlepage}
 \begin{center}
 \singlespacing
 
-\vspace*{0.3cm}
+\vspace*{0.1cm}
 
 {\Large\bfseries SPECIALIZATION PROJECT REPORT}
 
-\vspace{0.7cm}
+\vspace{0.5cm minus 0.2cm}
 
-{\Huge\bfseries\begin{spacing}{1.12}%
+{\Huge\bfseries\begin{spacing}{1.08}%
 \MakeUppercase{Autonomous Video Ad-Placement and Contextual Safety Analyzer}%
 \end{spacing}}
 
-\vspace{1.0cm}
+\vspace{0.6cm minus 0.2cm}
 
 A Project Report submitted in partial fulfillment of the requirements for the
 award of the degree of
 
-\vspace{0.4cm}
+\vspace{0.3cm minus 0.15cm}
 
 {\Large\bfseries BACHELOR OF COMPUTER APPLICATIONS}
 
-\vspace{0.7cm}
+\vspace{0.5cm minus 0.2cm}
 
 by
 
-\vspace{0.4cm}
+\vspace{0.3cm minus 0.15cm}
 
 \textbf{Andrew Shelton S}
-Register No: 2441609\\[0.15cm]
+Register No: 2441609\\[0.08cm]
 
 \textbf{Akash Ganesh}
-Register No: 2441604\\[0.15cm]
+Register No: 2441604\\[0.08cm]
 
 \textbf{Andrew Judah}
-Register No: 2441608\\[0.15cm]
+Register No: 2441608\\[0.08cm]
 
 \textbf{Ramona Elisha Mary}
 Register No: 2441646
 
-\vspace{0.7cm}
+\vspace{0.5cm minus 0.2cm}
 
 Under the Guidance of
 
-\vspace{0.25cm}
+\vspace{0.2cm}
 
-\textbf{Dr. Chanti}\\
+\textbf{Dr. Chanti.S}\\
 Assistant Professor
 
-\vspace{0.4cm}
+\vspace{0.3cm minus 0.15cm}
 
-\includegraphics[width=3.4cm]{Images/CU_logo_blue.png}
+\includegraphics[width=2.6cm]{Images/CU_logo_blue.png}
 
-\vspace{0.4cm}
+\vspace{0.3cm minus 0.15cm}
 
 \textbf{DEPARTMENT OF COMPUTER SCIENCE}\\
 School of Sciences\\
 CHRIST (Deemed to be University)\\
 Bengaluru, Karnataka, India
 
-\vspace{0.4cm}
+\vspace{0.3cm minus 0.15cm}
 
 \textbf{AUGUST 2026}
 
@@ -212,34 +221,44 @@ Bengaluru, Karnataka, India
 % INNER TITLE PAGE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Same reasoning as the cover page above: smaller gaps with real slack, "minus"
+% shrink as a safety margin against engine differences, and a smaller logo. The
+% \vfill before the logo was already elastic, but elastic glue only helps once
+% the REST of the content fits -- it cannot manufacture space that was never
+% there, which is why the fixed gaps still needed trimming as well.
+% Measured on a real compile, not estimated: at the spacing this replaces, this
+% page cleared its bottom margin by 0.37cm. That is not a safety margin, it is
+% a coin flip against the next engine or font update, so it is trimmed again
+% here down to a measured 1.4cm of headroom -- see the comment on the cover
+% page above for why this needed a second pass at all.
 \begin{titlepage}
 \begin{center}
 \singlespacing
 
-\vspace*{1.0cm}
+\vspace*{0.3cm}
 
-{\Huge\bfseries\begin{spacing}{1.12}%
+{\Huge\bfseries\begin{spacing}{1.08}%
 \MakeUppercase{Autonomous Video Ad-Placement and Contextual Safety Analyzer}%
 \end{spacing}}
 
-\vspace{1.1cm}
+\vspace{0.5cm minus 0.2cm}
 
 A Specialization Project Report
 
-\vspace{0.3cm}
+\vspace{0.2cm}
 
 Submitted in partial fulfillment of the requirements for the award of the
 degree of
 
-\vspace{0.4cm}
+\vspace{0.25cm minus 0.1cm}
 
 {\Large\bfseries BACHELOR OF COMPUTER APPLICATIONS}
 
-\vspace{0.9cm}
+\vspace{0.4cm minus 0.15cm}
 
 by
 
-\vspace{0.5cm}
+\vspace{0.25cm minus 0.1cm}
 
 \textbf{Andrew Shelton S}
 Register No: 2441609
@@ -253,27 +272,27 @@ Register No: 2441608
 \textbf{Ramona Elisha Mary}
 Register No: 2441646
 
-\vspace{1.2cm}
+\vspace{0.5cm minus 0.2cm}
 
 Under the Guidance of
 
-\vspace{0.4cm}
+\vspace{0.2cm}
 
-\textbf{Dr. Chanti}\\
+\textbf{Dr. Chanti.S}\\
 Assistant Professor
 
 \vfill
 
-\includegraphics[width=4cm]{Images/CU_logo_blue.png}
+\includegraphics[width=2.4cm]{Images/CU_logo_blue.png}
 
-\vspace{0.5cm}
+\vspace{0.25cm minus 0.1cm}
 
 {\large\bfseries DEPARTMENT OF COMPUTER SCIENCE}\\
 School of Sciences\\
 CHRIST (Deemed to be University)\\
 Bengaluru, Karnataka, India
 
-\vspace{0.5cm}
+\vspace{0.25cm minus 0.1cm}
 
 {\bfseries AUGUST 2026}
 
@@ -301,7 +320,7 @@ application of the knowledge and skills acquired during the programme to address
 the identified problem and develop an appropriate technological solution.
 
 The project work has been carried out under the guidance and supervision of
-Dr. Chanti, Assistant Professor, Department of Computer Science, and is
+Dr. Chanti.S, Assistant Professor, Department of Computer Science, and is
 submitted in partial fulfilment of the academic requirements of the programme.
 
 \vspace{0.6cm}
@@ -397,7 +416,7 @@ We would also like to express our gratitude to the \textbf{Coordinator,
 Department of Computer Science, CHRIST (Deemed to be University)}, for the
 valuable guidance and support extended during the various stages of the project.
 
-We are deeply grateful to our \textbf{Project In-charge and Guide, Dr. Chanti,
+We are deeply grateful to our \textbf{Project In-charge and Guide, Dr. Chanti.S,
 Assistant Professor, Department of Computer Science}, for the continuous
 guidance, valuable suggestions, constructive feedback, and encouragement
 provided throughout the project. The guidance and support received during every

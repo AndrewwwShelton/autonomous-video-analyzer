@@ -81,7 +81,7 @@ DETAILS = [
                    "Specialization Project"),
     ("Semester / Section:", "V / 5BCA-B"),
     ("Academic Year:", "2026&ndash;27"),
-    ("Project Guide:", "Dr. Chanti, Assistant Professor, "
+    ("Project Guide:", "Dr. Chanti.S, Assistant Professor, "
                        "Department of Computer Science"),
 ]
 
@@ -352,7 +352,7 @@ def build():
                   "g", parent=FIELD, alignment=TA_CENTER)),
               Paragraph("<b>Project Coordinator</b>", ParagraphStyle(
                   "c", parent=FIELD, alignment=TA_CENTER))],
-             [Paragraph("Name: Dr. Chanti", FIELD),
+             [Paragraph("Name: Dr. Chanti.S", FIELD),
               Paragraph("Name: " + "_" * 24, FIELD)],
              [Paragraph("Signature: " + "_" * 20, FIELD),
               Paragraph("Signature: " + "_" * 20, FIELD)]]
